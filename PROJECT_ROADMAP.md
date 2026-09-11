@@ -53,12 +53,12 @@
 - [x] Task 2.5: Implement worker watchdog supervisor with POSIX `SIGKILL` timeout enforcement.
 - [x] Task 2.6: Write unit tests verifying containment of fork bombs, memory bombs, and infinite loops.
 
-### Phase 3: Distributed Worker Architecture & Real-Time Streaming
-- [ ] Task 3.1: Configure Redis as message broker and streaming pub/sub bus.
-- [ ] Task 3.2: Implement asynchronous Celery worker / consumer daemon for task dispatch.
-- [ ] Task 3.3: Implement stream multiplexer piping container stdout/stderr chunks to Redis Pub/Sub (`exec:<id>`).
-- [ ] Task 3.4: Implement stream buffer with 60s TTL in Redis for reconnection resilience.
-- [ ] Task 3.5: Implement automated orphan container cleanup daemon (`JanitorDaemon`).
+### Phase 3: Distributed Worker Architecture & Real-Time Streaming (Completed)
+- [x] Task 3.1: Configure Redis as message broker and streaming pub/sub bus.
+- [x] Task 3.2: Implement asynchronous Celery worker / consumer daemon for task dispatch.
+- [x] Task 3.3: Implement stream multiplexer piping container stdout/stderr chunks to Redis Pub/Sub (`exec:<id>`).
+- [x] Task 3.4: Implement stream buffer with 60s TTL in Redis for reconnection resilience.
+- [x] Task 3.5: Implement automated orphan container cleanup daemon (`JanitorDaemon`).
 
 ### Phase 4: Backend API Gateway, Authentication & Persistence
 - [ ] Task 4.1: Initialize FastAPI application with ASGI asynchronous architecture.

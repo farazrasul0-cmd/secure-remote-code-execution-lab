@@ -1,0 +1,128 @@
+"""Celery Execution Tasks for Distributed Sandbox Execution and Streaming."""
+
+import asyncio
+import contextlib
+import json
+import logging
+from typing import Any
+
+from worker.broker.redis_client import redis_broker
+from worker.celery_app import celery_app
+from worker.janitor.reaper import JanitorReaper
+from worker.sandbox.factory import SandboxFactory
+from worker.sandbox.models import (
+    ExecutionRequest,
+    ExecutionStatus,
+    StreamChunk,
+    StreamEventType,
+)
+from worker.streaming.multiplexer import StreamMultiplexer
+
+logger = logging.getLogger("rce_worker.tasks")
+
+
+async def _stream_and_collect(
+    submission_id: str,
+    request: ExecutionRequest,
+    force_process: bool = False,
+) -> dict[str, Any]:
+    """Asynchronous core running sandbox, multiplexing streams to Redis, and gathering metrics."""
+    sandbox = SandboxFactory.create_sandbox(force_process=force_process)
+    multiplexer = StreamMultiplexer(submission_id)
+    redis_client = redis_broker.get_async_client()
+
+    stdout_parts = []
+    stderr_parts = []
+    final_payload = {
+        "status": ExecutionStatus.SYSTEM_ERROR.value,
+        "exit_code": None,
+        "duration_ms": 0,
+        "oom_killed": False,
+    }
+
+    try:
+        async for chunk in sandbox.stream_execute(request):
+            # 1. Publish to Redis Pub/Sub and buffer in Redis list
+            await multiplexer.publish_chunk_async(redis_client, chunk)
+
+            # 2. Accumulate logs for final return
+            if chunk.event == StreamEventType.STDOUT:
+                stdout_parts.append(chunk.data)
+            elif chunk.event == StreamEventType.STDERR:
+                stderr_parts.append(chunk.data)
+            elif chunk.event == StreamEventType.COMPLETE:
+                with contextlib.suppress(Exception):
+                    final_payload = json.loads(chunk.data)
+
+    except Exception as exc:
+        logger.error(
+            "Exception during execution of submission %s: %s", submission_id, exc
+        )
+        err_chunk = StreamChunk(
+            event=StreamEventType.ERROR,
+            data=f"[SYSTEM ERROR: {str(exc)}]",
+        )
+        await multiplexer.publish_chunk_async(redis_client, err_chunk)
+        final_payload["status"] = ExecutionStatus.SYSTEM_ERROR.value
+        final_payload["error_message"] = str(exc)
+
+    finally:
+        await redis_client.aclose()
+
+    return {
+        "submission_id": submission_id,
+        "status": final_payload.get("status", ExecutionStatus.COMPLETED.value),
+        "exit_code": final_payload.get("exit_code"),
+        "duration_ms": final_payload.get("duration_ms", 0),
+        "oom_killed": final_payload.get("oom_killed", False),
+        "stdout": "".join(stdout_parts),
+        "stderr": "".join(stderr_parts),
+    }
+
+
+@celery_app.task(bind=True, name="worker.tasks.execution.execute_code")
+def execute_code(
+    self,
+    submission_id: str,
+    source_code: str,
+    language: str = "python",
+    stdin_data: str | None = None,
+    timeout_seconds: float = 5.0,
+    memory_limit: str = "128m",
+    cpu_quota: int = 50000,
+    max_pids: int = 64,
+    max_output_bytes: int = 1048576,
+    force_process: bool = False,
+) -> dict[str, Any]:
+    """Execute code payload in isolated sandbox and stream output chunks via Redis Pub/Sub."""
+    logger.info("Starting execution task for submission: %s", submission_id)
+
+    request = ExecutionRequest(
+        source_code=source_code,
+        language=language,
+        stdin_data=stdin_data,
+        timeout_seconds=timeout_seconds,
+        memory_limit=memory_limit,
+        cpu_quota=cpu_quota,
+        max_pids=max_pids,
+        max_output_bytes=max_output_bytes,
+    )
+
+    # Execute async pipeline within synchronous Celery task
+    result = asyncio.run(
+        _stream_and_collect(submission_id, request, force_process=force_process)
+    )
+    logger.info(
+        "Completed execution task for submission: %s (Status: %s)",
+        submission_id,
+        result["status"],
+    )
+    return result
+
+
+@celery_app.task(name="worker.tasks.execution.reap_orphan_containers")
+def reap_orphan_containers() -> dict[str, Any]:
+    """Periodic task executed by Celery Beat to purge orphaned sandbox containers."""
+    reaper = JanitorReaper()
+    reaped = reaper.reap_stale_containers()
+    return {"reaped_count": len(reaped), "reaped_ids": reaped}
