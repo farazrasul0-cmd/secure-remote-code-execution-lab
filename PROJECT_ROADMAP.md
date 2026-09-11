@@ -60,13 +60,13 @@
 - [x] Task 3.4: Implement stream buffer with 60s TTL in Redis for reconnection resilience.
 - [x] Task 3.5: Implement automated orphan container cleanup daemon (`JanitorDaemon`).
 
-### Phase 4: Backend API Gateway, Authentication & Persistence
-- [ ] Task 4.1: Initialize FastAPI application with ASGI asynchronous architecture.
-- [ ] Task 4.2: Design PostgreSQL schema (Users, Submissions, ExecutionLogs) and Alembic migrations.
-- [ ] Task 4.3: Implement JWT authentication routes (`/api/v1/auth/register`, `/api/v1/auth/login`).
-- [ ] Task 4.4: Implement submission ingestion endpoint (`POST /api/v1/submissions`) with payload validation.
-- [ ] Task 4.5: Implement full-duplex WebSocket endpoint (`/ws/v1/submissions/{id}`) subscribing to Redis Pub/Sub.
-- [ ] Task 4.6: Implement submission history and telemetry endpoints (`GET /api/v1/submissions`).
+### Phase 4: Backend API Gateway, Authentication & Persistence (Completed)
+- [x] Task 4.1: Initialize FastAPI application with ASGI asynchronous architecture.
+- [x] Task 4.2: Design PostgreSQL schema (Users, Submissions, ExecutionLogs) and Alembic migrations.
+- [x] Task 4.3: Implement JWT authentication routes (`/api/v1/auth/register`, `/api/v1/auth/login`).
+- [x] Task 4.4: Implement submission ingestion endpoint (`POST /api/v1/submissions`) with payload validation.
+- [x] Task 4.5: Implement full-duplex WebSocket endpoint (`/ws/v1/submissions/{id}`) subscribing to Redis Pub/Sub.
+- [x] Task 4.6: Implement submission history and telemetry endpoints (`GET /api/v1/submissions`).
 
 ### Phase 5: Interactive Web Application (Frontend)
 - [ ] Task 5.1: Initialize React 18 + TypeScript application using Vite.

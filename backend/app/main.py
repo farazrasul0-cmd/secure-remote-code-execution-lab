@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.v1.endpoints.websocket import router as ws_router
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import logger
@@ -54,6 +55,9 @@ if settings.CORS_ORIGINS:
 
 # Register Master API Router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Register WebSocket Streaming Router
+app.include_router(ws_router, prefix="/ws/v1", tags=["WebSockets"])
 
 
 @app.get("/", tags=["Root"])

@@ -23,9 +23,14 @@ ignore = [
     "E501", # Line too long (handled by formatter)
     "B008", # Do not perform function calls in argument defaults (FastAPI Depends)
 ]
-
 fixable = ["ALL"]
 unfixable = []
+
+[lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["app.db.base.Base"]
+
+[lint.per-file-ignores]
+"backend/app/models/*" = ["TC004"]
 
 [lint.isort]
 known-first-party = ["app"]
