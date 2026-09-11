@@ -62,3 +62,20 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 | **Privilege Boundary** | Non-root user + `CAP_DROP ALL` | Setuid privilege escalation, root directory tampering. |
 | **Kernel Syscall Boundary**| Seccomp-BPF | Container breakout, kernel 0-day exploitation, process snooping (`ptrace`). |
 | **Application Boundary** | Worker output counter + token bucket | Terminal buffer exhaustion, WebSocket network saturation. |
+
+---
+
+## 5. Software Architecture: Monorepo Foundations & ASGI Lifecycles
+
+### 5.1 Monorepo vs. Polyrepo Architecture
+- **Coordinated Atomicity:** In distributed systems containing tightly coupled interfaces (FastAPI backend schemas, Celery worker payloads, frontend WebSocket frames), a polyrepo introduces synchronization friction and schema drift.
+- **Unified CI/CD & Tooling:** Maintaining `backend/`, `worker/`, `frontend/`, and `docker/` within a single repository enables unified linting, synchronized database migrations, and atomic feature branch testing.
+
+### 5.2 Asynchronous Server Gateway Interface (ASGI) vs. WSGI
+- **WSGI Limitations:** The traditional Web Server Gateway Interface (PEP 3333) is fundamentally synchronous and request-response driven. Each HTTP connection occupies a dedicated worker thread or OS process, making it impossible to scale persistent WebSocket streams without exhausting operating system thread limits.
+- **ASGI Concurrency:** ASGI decouples connection handling from execution using Python's `asyncio` event loop. A single OS process running Uvicorn can concurrently manage tens of thousands of idle or streaming WebSocket connections using asynchronous non-blocking multiplexing.
+
+### 5.3 Asynchronous Database Connection Pooling (`asyncpg` + SQLAlchemy 2.0)
+- **Non-Blocking I/O:** Traditional database drivers (like `psycopg2`) block the calling thread during query execution over TCP. `asyncpg` implements the PostgreSQL wire protocol directly over asyncio streams, allowing the web server to handle other incoming requests while waiting for PostgreSQL query responses.
+- **Connection Pre-Ping & Leak Prevention:** Our pool configuration (`pool_pre_ping=True`, `pool_size=10`, `max_overflow=20`) proactively tests connections before issuing queries, preventing stale socket errors, while the scoped `get_db` async generator ensures that sessions are reliably rolled back and closed upon completion.
+

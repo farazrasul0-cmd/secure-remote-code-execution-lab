@@ -39,11 +39,11 @@
 
 ## 3. Systems-First Development Roadmap
 
-### Phase 1: Project Foundation & Infrastructure Setup (Current Step)
-- [ ] Task 1.1: Initialize unified monorepo directory layout (`backend/`, `worker/`, `frontend/`, `docker/`).
-- [ ] Task 1.2: Configure `.env.example` and environment variable management.
-- [ ] Task 1.3: Define `docker-compose.dev.yml` for local infrastructure (PostgreSQL 15+ and Redis 7+).
-- [ ] Task 1.4: Establish Git repository standards, pre-commit linting (`ruff`, `eslint`), and branch protections.
+### Phase 1: Project Foundation & Infrastructure Setup (Completed)
+- [x] Task 1.1: Initialize unified monorepo directory layout (`backend/`, `worker/`, `frontend/`, `docker/`, `database/`, `deployment/`).
+- [x] Task 1.2: Configure `.env.example` and environment variable management.
+- [x] Task 1.3: Define `docker-compose.dev.yml` for local infrastructure (PostgreSQL 15+ and Redis 7+).
+- [x] Task 1.4: Establish Git repository standards, pre-commit linting (`ruff`, `.editorconfig`), and testing framework.
 
 ### Phase 2: Secure Execution Engine & Sandbox Core (Security-First)
 - [ ] Task 2.1: Author hardened unprivileged Python 3.11 Dockerfile (`uid=1001`, minimal Alpine base).
