@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  # ----------------------------------------------------------------------------
+  # Primary Relational Store: PostgreSQL 15 (ACID Compliance & JSONB Telemetry)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: rce_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lab_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_secret_password}
+      POSTGRES_DB: ${POSTGRES_DB:-remote_lab_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lab_admin} -d ${POSTGRES_DB:-remote_lab_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rce_network
+
+  # ----------------------------------------------------------------------------
+  # Message Broker & Real-Time Streaming Bus: Redis 7
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: rce_redis_dev
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rce_network
+
+volumes:
+  postgres_data:
+    name: rce_postgres_dev_data
+  redis_data:
+    name: rce_redis_dev_data
+
+networks:
+  rce_network:
+    name: rce_dev_network
+    driver: bridge

@@ -2,6 +2,19 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [0.3.0] - 2026-09-11
+### Added
+- **Monorepo Directory Structure**: Scaffolded unified monorepo modules (`backend/`, `worker/`, `frontend/`, `docker/`, `database/`, `deployment/`).
+- **Local Infrastructure (Docker Compose)**: Configured `docker-compose.dev.yml` provisioning PostgreSQL 15 and Redis 7 with persistent volumes and healthchecks.
+- **Environment Configuration**: Created `.env.example` defining database, broker, security, and execution limit parameters.
+- **FastAPI Backend Skeleton**: Created ASGI application with lifespan management, CORS middleware, structured logging, and central v1 API router.
+- **System Health Endpoint**: Implemented `GET /api/v1/health` verifying API readiness, PostgreSQL connectivity, and Redis broker ping.
+- **Asynchronous Database Foundation**: Implemented SQLAlchemy 2.0 `create_async_engine`, async sessionmaker, and `get_db` FastAPI dependency; established Alembic async migration setup (`alembic.ini`, `env.py`).
+- **Execution Worker Skeleton**: Scaffolded Celery/async worker service with requirements, task definitions, and Dockerfile.
+- **Docker Sandbox Runtime**: Created minimal Alpine Python 3.11 Dockerfile (`uid=1001`) and custom Seccomp-BPF policy.
+- **Frontend Skeleton**: Scaffolded React 18 + TypeScript SPA with Vite, Monaco Editor, and xterm.js dependencies.
+- **Developer Tooling**: Configured `ruff.toml` for Python 3.11 linting/formatting, `.pre-commit-config.yaml`, `.editorconfig`, and automated pytest test suite (`test_health.py` with 100% pass rate).
+
 ## [0.2.0] - 2026-09-11
 ### Added
 - Created `documentation/13_REQUIREMENTS_SPECIFICATION.md` defining functional, non-functional, MVP, and measurable engineering requirements.
