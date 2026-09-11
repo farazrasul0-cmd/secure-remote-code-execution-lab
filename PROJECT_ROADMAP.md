@@ -68,12 +68,12 @@
 - [x] Task 4.5: Implement full-duplex WebSocket endpoint (`/ws/v1/submissions/{id}`) subscribing to Redis Pub/Sub.
 - [x] Task 4.6: Implement submission history and telemetry endpoints (`GET /api/v1/submissions`).
 
-### Phase 5: Interactive Web Application (Frontend)
-- [ ] Task 5.1: Initialize React 18 + TypeScript application using Vite.
-- [ ] Task 5.2: Integrate Monaco Editor with Python 3.11 syntax highlighting, shortcuts, and themes.
-- [ ] Task 5.3: Integrate `xterm.js` terminal emulator with ANSI color and stream rendering.
-- [ ] Task 5.4: Build custom React WebSocket hook with auto-reconnection and buffering.
-- [ ] Task 5.5: Build execution history dashboard with telemetry metrics (runtime, memory, status badges).
+### Phase 5: Interactive Web Application (Frontend) (Completed)
+- [x] Task 5.1: Initialize React 18 + TypeScript application using Vite.
+- [x] Task 5.2: Integrate Monaco Editor with Python 3.11 syntax highlighting, shortcuts, and themes.
+- [x] Task 5.3: Integrate `xterm.js` terminal emulator with ANSI color and stream rendering.
+- [x] Task 5.4: Build custom React WebSocket hook with auto-reconnection and buffering.
+- [x] Task 5.5: Build execution history dashboard with telemetry metrics (runtime, memory, status badges).
 
 ### Phase 6: System Hardening, Adversarial Testing & Telemetry
 - [ ] Task 6.1: Execute comprehensive adversarial test suite (fork bombs, OOM, disk filling, network scanning).

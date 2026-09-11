@@ -203,5 +203,38 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** In [`backend/app/db/session.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/db/session.py) using `AsyncEngine` and `async_sessionmaker`, and throughout services with `AsyncSession`.
 - **Real-World Examples:** High-concurrency financial trading engines, modern FastAPI / Go / Node.js web architectures.
 
+---
+
+## 9. Interactive Web Application: Terminal Emulation, Monaco & Stream Reconciliation
+
+### 9.1 Virtual Terminal Emulation & ANSI Escape Sequences (ECMA-48 / VT100)
+- **Concept Learned:** Pseudo-terminal interfaces, character cell grids, and in-band control sequences.
+- **Simple Explanation:** Operating system kernels emit stdout/stderr as raw byte streams. When formatted for human consoles, programs emit ANSI escape sequences (`\x1b[31m` for red, `\x1b[0m` for reset, `\r` for carriage return). A virtual terminal emulator (like `xterm.js`) is an in-memory 2D character matrix parser that translates these escape codes into colored glyphs, handles cursor positioning, and scrolls active viewports.
+- **Why It Matters:** Raw HTML tags like `<pre>` or `<textarea>` do not interpret ANSI control sequences. If a Python script outputs a traceback or progress bar, displaying it in `<pre>` produces unreadable escape garbage (e.g., `[31mError[0m`) and broken line feeds. With `xterm.js` and `convertEol: true`, the browser renders a genuine Linux terminal interface.
+- **Where It Is Used in This Project:** Implemented in [`frontend/src/components/TerminalView.tsx`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/frontend/src/components/TerminalView.tsx) using `xterm.js` and `xterm-addon-fit`.
+- **Real-World Examples:** Visual Studio Code integrated terminal, GitHub Codespaces, Hyper terminal, Alacritty, iTerm2.
+
+### 9.2 Background Web Workers & Abstract Syntax Tree Tokenization (Monaco Editor)
+- **Concept Learned:** Browser main thread offloading and asynchronous tokenization pipelines.
+- **Simple Explanation:** Parsing code into an Abstract Syntax Tree (AST) for syntax highlighting, scope matching, and autocomplete is CPU-heavy. If executed on the browser's main JavaScript UI thread, user typing produces noticeable lag and dropped animation frames.
+- **Why It Matters:** Monaco Editor runs its language service parsers inside isolated Web Workers. The main thread remains unblocked to render DOM updates at 60 FPS, providing a responsive development environment even when editing complex multi-line algorithms.
+- **Where It Is Used in This Project:** Implemented in [`frontend/src/components/CodeEditor.tsx`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/frontend/src/components/CodeEditor.tsx) using `@monaco-editor/react`.
+- **Real-World Examples:** Visual Studio Code, TypeScript Playground, CodeSandbox, Replit.
+
+### 9.3 Stream Reconciliation, Monotonic Sequence Numbers & Jitter Buffering
+- **Concept Learned:** Frame deduplication and sequence reconstruction in distributed network streams.
+- **Simple Explanation:** In unpredictable network environments (mobile networks, Wi-Fi reconnection), WebSocket frames can be delayed, duplicated, or dropped. The backend tags each frame with an incremental integer sequence ($0, 1, 2, \dots$). The frontend stream consumer compares each incoming sequence against its highest recorded sequence. If `chunk.sequence <= highestSequence`, the chunk is discarded as a duplicate; if greater, it is appended to the terminal buffer.
+- **Why It Matters:** Prevents duplicate print statements and corrupted terminal output during connection flushes or Redis buffer replays when a client reconnects.
+- **Where It Is Used in This Project:** Enforced in [`frontend/src/hooks/useExecutionStream.ts`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/frontend/src/hooks/useExecutionStream.ts).
+- **Real-World Examples:** Video streaming protocols (RTP / WebRTC packet sequencing), TCP packet reconstruction, TCP Reno/Cubic sliding windows.
+
+### 9.4 Client-Side Terminal Buffer Management & Memory Leak Prevention
+- **Concept Learned:** Bounded circular buffers vs. unbounded DOM growth.
+- **Simple Explanation:** If an infinite loop prints 100,000 lines of output before being terminated by the watchdog timer, appending all 100,000 lines to the browser DOM consumes hundreds of megabytes of RAM, causing the browser tab to crash or become unresponsive.
+- **Why It Matters:** By configuring `xterm.js` with `scrollback: 5000`, the terminal acts as a fixed-size ring buffer: new incoming lines displace the oldest lines once the 5,000-line limit is reached. Combined with the backend's 1MB output ceiling, this ensures zero client-side memory leakage under adversarial code submissions.
+- **Where It Is Used in This Project:** Configured in [`frontend/src/components/TerminalView.tsx`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/frontend/src/components/TerminalView.tsx).
+- **Real-World Examples:** Linux kernel `dmesg` circular ring buffer, log rotation daemons (`logrotate`), production server monitoring consoles.
+
+
 
 

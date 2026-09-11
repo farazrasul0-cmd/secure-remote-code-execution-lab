@@ -2,6 +2,17 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [0.7.0] - 2026-09-12
+### Added
+- **Interactive Cloud IDE Architecture (`App.tsx`)**: Built modern split-pane workstation layout in React 18 and TypeScript with Tailwind CSS, coordinating the code editor, terminal, telemetry dashboard, and execution drawer.
+- **Monaco Editor Component (`CodeEditor.tsx`)**: Integrated `@monaco-editor/react` with Python 3.11 syntax highlighting, `vs-dark` theme, execution lockouts (`readOnly: isRunning`), and `Ctrl+Enter` shortcut execution command.
+- **Virtual Terminal Emulator (`TerminalView.tsx`)**: Integrated `xterm.js` with `FitAddon` and `ResizeObserver` supporting ANSI colors, carriage return handling (`convertEol: true`), custom dark theme palette, buffer copying, and 5000-line memory-capped scrollback.
+- **Custom WebSocket Stream Hook (`useExecutionStream.ts`)**: Implemented React hook managing connection lifecycles (`CONNECTING`, `STREAMING`, `FINISHED`, `ERROR`), deduplicating stream frames with monotonic sequence checks, and providing exponential backoff auto-reconnect.
+- **Execution Telemetry Dashboard (`TelemetryPanel.tsx`)**: Built real-time telemetry component displaying execution duration, peak RAM consumption, process exit codes, and Linux kernel sandbox isolation specifications (cgroups v2, Seccomp-BPF, `--net=none`).
+- **Standard Input Drawer (`StdinDrawer.tsx`)**: Built collapsible drawer allowing users to pipe custom multi-line input payloads into `sys.stdin` at container launch.
+- **Audit Log & History Drawer (`SubmissionHistory.tsx`)**: Implemented audit log panel querying `/api/v1/submissions` with code restoration into Monaco Editor.
+- **Authentication Modal & Context (`AuthModal.tsx`, `AuthContext.tsx`)**: Implemented modal supporting user registration, OAuth2 JWT login, and session persistence across page reloads.
+
 ## [0.6.0] - 2026-09-12
 ### Added
 - **Authentication & Cryptography Subsystem**: Implemented JWT access token generation, cryptographically signed token verification, and 72-byte safe salted password hashing using C-accelerated `bcrypt` in `backend/app/core/security.py`.
