@@ -45,13 +45,13 @@
 - [x] Task 1.3: Define `docker-compose.dev.yml` for local infrastructure (PostgreSQL 15+ and Redis 7+).
 - [x] Task 1.4: Establish Git repository standards, pre-commit linting (`ruff`, `.editorconfig`), and testing framework.
 
-### Phase 2: Secure Execution Engine & Sandbox Core (Security-First)
-- [ ] Task 2.1: Author hardened unprivileged Python 3.11 Dockerfile (`uid=1001`, minimal Alpine base).
-- [ ] Task 2.2: Define Seccomp-BPF JSON profile blocking dangerous system calls (`ptrace`, `bpf`, `mount`).
-- [ ] Task 2.3: Implement standalone Python sandbox runner using Docker SDK with strict cgroups v2 (`cpu.max`, `memory.max`, `pids.max`).
-- [ ] Task 2.4: Implement memory-backed `tmpfs` RAM disk mount (`--read-only` rootfs, 16MB tmpfs).
-- [ ] Task 2.5: Implement worker watchdog supervisor with POSIX `SIGKILL` timeout enforcement.
-- [ ] Task 2.6: Write unit tests verifying containment of fork bombs, memory bombs, and infinite loops.
+### Phase 2: Secure Execution Engine & Sandbox Core (Completed)
+- [x] Task 2.1: Author hardened unprivileged Python 3.11 Dockerfile (`uid=1001`, minimal Alpine base).
+- [x] Task 2.2: Define Seccomp-BPF JSON profile blocking dangerous system calls (`ptrace`, `bpf`, `mount`).
+- [x] Task 2.3: Implement standalone Python sandbox runner using Docker SDK with strict cgroups v2 (`cpu.max`, `memory.max`, `pids.max`).
+- [x] Task 2.4: Implement memory-backed `tmpfs` RAM disk mount (`--read-only` rootfs, 16MB tmpfs).
+- [x] Task 2.5: Implement worker watchdog supervisor with POSIX `SIGKILL` timeout enforcement.
+- [x] Task 2.6: Write unit tests verifying containment of fork bombs, memory bombs, and infinite loops.
 
 ### Phase 3: Distributed Worker Architecture & Real-Time Streaming
 - [ ] Task 3.1: Configure Redis as message broker and streaming pub/sub bus.

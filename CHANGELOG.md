@@ -2,6 +2,17 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [0.4.0] - 2026-09-11
+### Added
+- **Core Execution Models & Enums**: Defined `ExecutionStatus` (`COMPLETED`, `TIME_LIMIT_EXCEEDED`, `MEMORY_LIMIT_EXCEEDED`, `OUTPUT_LIMIT_EXCEEDED`, `RUNTIME_ERROR`, `RESOURCE_LIMIT_EXCEEDED`), `ExecutionRequest`, `ExecutionResult`, and `StreamChunk` with Pydantic v2.
+- **Base Sandbox Interface (`BaseSandbox`)**: Implemented abstract contract supporting both batch execution (`execute`) and real-time streaming (`stream_execute`).
+- **Hardened Docker Sandbox (`DockerSandbox`)**: Implemented production OCI container runner enforcing cgroups v2 (`cpu_quota=50000`, `mem_limit=128m`, `memswap_limit=128m`, `pids_limit=64`), dropped capabilities (`CAP_DROP ALL`), read-only rootfs, in-memory `tmpfs` RAM disk (`/tmp`, 16MB), and zero network connectivity (`--net=none`).
+- **Subprocess Sandbox (`ProcessSandbox`)**: Created isolated testing and fallback sandbox with non-blocking async execution, stdin piping, and watchdog supervision.
+- **Dynamic Sandbox Factory (`SandboxFactory`)**: Factory pattern dynamically selecting `DockerSandbox` when Docker daemon is reachable and falling back to `ProcessSandbox` for environments without running Docker daemon.
+- **Stream Consumer & Output Capper (`StreamConsumer`)**: Enforced maximum byte ceiling (1MB hard cap) with real-time stream truncation, preventing buffer flooding and memory exhaustion.
+- **Watchdog Timer Supervisor**: Implemented hard timeout enforcement ($5.0\text{s}$ wall-clock limit) issuing POSIX `SIGKILL` on infinite loop detection.
+- **Comprehensive Unit & Adversarial Test Suite**: Added 6 tests in `backend/tests/test_execution_engine.py` verifying standard execution, stdin piping, infinite loop timeouts, runtime exceptions, output capping, and real-time streaming chunks (100% test pass rate).
+
 ## [0.3.0] - 2026-09-11
 ### Added
 - **Monorepo Directory Structure**: Scaffolded unified monorepo modules (`backend/`, `worker/`, `frontend/`, `docker/`, `database/`, `deployment/`).
