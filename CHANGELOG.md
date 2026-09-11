@@ -2,6 +2,16 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [0.5.0] - 2026-09-11
+### Added
+- **Distributed Redis Broker Client (`RedisBroker`)**: Created async and sync Redis client connection pool manager in `worker/broker/redis_client.py` for task queues and Pub/Sub channel management.
+- **Stream Multiplexer (`StreamMultiplexer`)**: Engineered real-time stream broadcaster in `worker/streaming/multiplexer.py` assigning monotonic sequence numbers to stdout/stderr chunks and publishing to `rce:stream:<submission_id>`.
+- **Stream Catch-up Buffer (`StreamBuffer`)**: Implemented Redis list buffer in `worker/streaming/buffer.py` with 60-second TTL to support seamless client reconnection and stream replay.
+- **Asynchronous Worker Daemon (`AsyncWorkerDaemon`)**: Built standalone async queue consumer in `worker/daemon.py` using non-blocking Redis `BRPOP` loops with graceful shutdown handling.
+- **Celery Worker & Task Definitions**: Configured Celery application in `worker/celery_app.py` with fair scheduling policies (`worker_prefetch_multiplier=1`, `task_acks_late=True`, `task_reject_on_worker_lost=True`) and implemented `execute_code` task in `worker/tasks/execution.py`.
+- **Automated Container Janitor (`JanitorReaper`)**: Implemented background reaper daemon in `worker/janitor/reaper.py` scanning containers labeled `sandbox_type=isolated` and purging orphaned containers exceeding operational lease (30s).
+- **Comprehensive Worker Test Suite**: Added 6 tests in `backend/tests/test_worker_streaming.py` validating sequence monotonicity, buffer replay, janitor safety, and end-to-end execution streaming (14/14 tests passing across full test suite).
+
 ## [0.4.0] - 2026-09-11
 ### Added
 - **Core Execution Models & Enums**: Defined `ExecutionStatus` (`COMPLETED`, `TIME_LIMIT_EXCEEDED`, `MEMORY_LIMIT_EXCEEDED`, `OUTPUT_LIMIT_EXCEEDED`, `RUNTIME_ERROR`, `RESOURCE_LIMIT_EXCEEDED`), `ExecutionRequest`, `ExecutionResult`, and `StreamChunk` with Pydantic v2.
