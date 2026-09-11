@@ -2,6 +2,16 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [0.6.0] - 2026-09-12
+### Added
+- **Authentication & Cryptography Subsystem**: Implemented JWT access token generation, cryptographically signed token verification, and 72-byte safe salted password hashing using C-accelerated `bcrypt` in `backend/app/core/security.py`.
+- **Relational Domain Models & Alembic Migration**: Implemented SQLAlchemy 2.0 ORM entities `User` and `Submission` with PostgreSQL native UUID primary keys, automatic ISO timestamps, and cascading relationships; authored Alembic migration `001_initial_schema.py`.
+- **FastAPI Authentication Routes (`/api/v1/auth`)**: Implemented `/register`, OAuth2-compatible `/login`, and `/me` endpoints in `backend/app/api/v1/endpoints/auth.py` with Pydantic v2 schemas and validation.
+- **Submission Ingestion & Queue Dispatch (`/api/v1/submissions`)**: Built `POST /api/v1/submissions` creating database records in `PENDING` state and dispatching task payloads onto the Redis broker queue (`rce:submissions`) for worker consumption.
+- **Submission History & Detail Queries**: Built `GET /api/v1/submissions` with cursor/page pagination and `GET /api/v1/submissions/{id}` with user-isolated access controls.
+- **Full-Duplex WebSocket Streaming Gateway (`/ws/v1/submissions/{id}`)**: Built WebSocket endpoint with query-token authentication, Redis buffer replay (`StreamBuffer`), and real-time Pub/Sub subscriber relay to client terminals.
+- **End-to-End Integration Test Suite**: Added 4 integration tests in `backend/tests/test_auth_and_submissions.py` and `backend/tests/test_websocket.py` verifying full auth lifecycle, submission dispatch, unauthorized access rejection, and WebSocket security (18/18 tests passing with 76% codebase coverage).
+
 ## [0.5.0] - 2026-09-11
 ### Added
 - **Distributed Redis Broker Client (`RedisBroker`)**: Created async and sync Redis client connection pool manager in `worker/broker/redis_client.py` for task queues and Pub/Sub channel management.

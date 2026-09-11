@@ -164,5 +164,44 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** In `JanitorReaper` ([`worker/janitor/reaper.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/janitor/reaper.py)), running periodically every 30 seconds via Celery Beat or asyncio background tasks.
 - **Real-World Examples:** Kubernetes garbage collection (terminating orphaned pods and dangling volume attachments), AWS CloudFormation stack rollbacks, HashiCorp Nomad job reaper.
 
+---
+
+## 8. Backend API Gateway, Authentication & Asynchronous Persistence
+
+### 8.1 Cryptographic Password Hashing: Bcrypt, Work Factors & Key Truncation
+- **Concept Learned:** Adaptive password hashing algorithms, cryptographic salting, and key size constraints of the Blowfish cipher.
+- **Simple Explanation:** Standard hash functions (like SHA-256 or MD5) are fast mathematical algorithms designed for data integrity. If used for passwords, attackers can calculate billions of guesses per second using GPUs or precomputed rainbow tables. Bcrypt incorporates a random 128-bit salt and an exponential "cost factor" ($2^{12} = 4096$ iterations) to make brute-force attacks computationally prohibitive.
+- **Why It Matters:** In the event of a database compromise or SQL dump leak, salted bcrypt hashes prevent offline cracking. Furthermore, Bcrypt is based on the Blowfish block cipher, which has a strict architectural limit of 72 bytes on input keys. Unhandled long passwords either trigger runtime exceptions or are silently truncated; in our platform, passwords are explicitly clamped to 72 bytes before feeding into the native C-accelerated `bcrypt` library.
+- **Where It Is Used in This Project:** Implemented in [`backend/app/core/security.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/core/security.py) using `bcrypt.gensalt(rounds=12)` and `bcrypt.checkpw()`.
+- **Real-World Examples:** NIST Special Publication 800-63B guidelines, Argon2id in modern password hashing standards, Linux `/etc/shadow` password storage.
+
+### 8.2 Stateless Authentication: JSON Web Tokens (JWT) & Signature Verification
+- **Concept Learned:** Stateless vs. stateful session management, symmetric cryptographic signing (HMAC-SHA256).
+- **Simple Explanation:** A JSON Web Token consists of three base64url-encoded parts separated by periods: `Header.Payload.Signature`. The server cryptographically signs the header and payload using a server-side secret key (`HS256`). When a client presents the token in an `Authorization: Bearer <token>` header, any backend server can verify the signature and trust the payload (`user_id`, `exp`) without querying the database for a session row.
+- **Why It Matters:** In high-throughput distributed systems, querying a central database for every single HTTP request and WebSocket handshake to validate user identity introduces massive database contention and latency. JWTs make the API gateway completely stateless, enabling horizontal scaling behind a round-robin load balancer.
+- **Where It Is Used in This Project:** Built in [`backend/app/core/security.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/core/security.py) and enforced via FastAPI dependency injection in [`backend/app/api/deps.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/deps.py).
+- **Real-World Examples:** OAuth2 / OpenID Connect (OIDC), Google Cloud Identity tokens, microservice authentication meshes.
+
+### 8.3 Network Protocols: HTTP/1.1 Request-Response vs. WebSocket (RFC 6455) Full-Duplex Streaming
+- **Concept Learned:** Protocol upgrade handshakes, framing, and persistent bidirectional TCP socket connections.
+- **Simple Explanation:** HTTP is inherently half-duplex and request-driven: a client sends a request and waits for the server's response. For real-time terminal output, polling HTTP endpoints produces excessive latency and overhead (repeated TCP handshakes, TLS negotiation, and HTTP headers). WebSockets start with an HTTP `Upgrade: websocket` handshake and transition the underlying TCP socket into a bi-directional, framed, full-duplex communication channel.
+- **Why It Matters:** A running terminal application in the sandbox (e.g. `for i in range(100): print(i); sleep(0.1)`) generates chunks incrementally. WebSockets allow the backend to push individual chunks to the browser with sub-millisecond network framing latency without requiring the browser to poll.
+- **Where It Is Used in This Project:** In [`backend/app/api/v1/endpoints/websocket.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/websocket.py), handling `/ws/v1/submissions/{id}` connections.
+- **Real-World Examples:** Cloud IDE terminals (GitHub Codespaces, AWS Cloud9), multiplayer games, live trading platforms.
+
+### 8.4 Event-Driven API Gateways: Decoupled WebSockets with Redis Pub/Sub
+- **Concept Learned:** Pub/Sub backplane routing in multi-instance API gateways.
+- **Simple Explanation:** When a user opens a WebSocket connection to the API gateway, the container executing their code might be running on a different physical worker node. The WebSocket server cannot directly read from the container's standard output. Instead, the API gateway subscribes to a Redis Pub/Sub channel (`rce:stream:<submission_id>`) and pumps received messages directly over the client's WebSocket connection.
+- **Why It Matters:** This design decouples the API gateway tier from the worker execution tier entirely. If the API cluster has 5 instances and the worker cluster has 20 nodes, any API instance can service any user's WebSocket stream because Redis acts as the unified distributed message backplane.
+- **Where It Is Used in This Project:** In [`backend/app/api/v1/endpoints/websocket.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/websocket.py) with async Redis `pubsub.listen()`.
+- **Real-World Examples:** Socket.io Redis Adapter, AWS API Gateway WebSocket integration with SQS/SNS, Slack messaging architecture.
+
+### 8.5 Asynchronous Data Access: Non-Blocking I/O & Connection Pooling
+- **Concept Learned:** Asynchronous database drivers (`asyncpg`), event loop concurrency, and session lifecycles.
+- **Simple Explanation:** In traditional synchronous database programming (e.g. standard `psycopg2`), when a thread executes `SELECT * FROM submissions`, that thread is blocked while waiting for the network round-trip and disk read from PostgreSQL. In an asynchronous event loop (`asyncio`), `await db.execute(...)` yields execution back to the loop, allowing the server to handle thousands of concurrent requests on a single OS thread.
+- **Why It Matters:** Synchronous blocking database calls quickly exhaust worker thread pools (e.g. 50 threads = 50 concurrent requests maximum). With async I/O (`asyncpg` + SQLAlchemy 2.0 async session), a single API process can comfortably handle thousands of simultaneous active connections with minimal memory footprint.
+- **Where It Is Used in This Project:** In [`backend/app/db/session.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/db/session.py) using `AsyncEngine` and `async_sessionmaker`, and throughout services with `AsyncSession`.
+- **Real-World Examples:** High-concurrency financial trading engines, modern FastAPI / Go / Node.js web architectures.
+
 
 
