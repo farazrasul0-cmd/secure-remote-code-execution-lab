@@ -350,6 +350,39 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** Implemented in [`worker/sandbox/polyglot/base.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/polyglot/base.py) and registered in [`worker/sandbox/polyglot/registry.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/polyglot/registry.py).
 - **Real-World Examples:** VS Code Language Server Protocol (LSP), LLVM target architecture backends.
 
+---
+
+## 13. Automated Autograding, Oracle Verification & Information Hiding
+
+### 13.1 Oracle-Based Verification & Deterministic Test Harnesses
+- **Concept Learned:** Formal specification checking using deterministic test oracles.
+- **Simple Explanation:** An Oracle represents ground-truth output corresponding to a given input tuple. An automated grading harness pipes input vectors into the student's isolated process, gathers standard output, and checks it against the Oracle.
+- **Why It Matters:** Eliminates evaluation non-determinism. Each test case runs in a freshly initialized sandbox environment, ensuring that file descriptors, memory leaks, or lingering threads from previous test cases do not contaminate subsequent evaluations.
+- **Where It Is Used in This Project:** Implemented in [`worker/grading/harness.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/grading/harness.py) and [`worker/grading/verifier.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/grading/verifier.py).
+- **Real-World Examples:** Competitive programming platforms (LeetCode, Codeforces, HackerRank, Kattis).
+
+### 13.2 Information Hiding & Security Isolation in Grading
+- **Concept Learned:** Cryptographic/architectural separation of public sample vectors from private system test cases.
+- **Simple Explanation:** If students can see all test vectors, they can easily hardcode answers (`if input == X: print(Y)`) rather than solving the algorithmic problem. By strictly partitioning test cases into visible samples and hidden grading suites, and scrubbing private vectors before serializing JSON to the client, the platform protects evaluation integrity.
+- **Why It Matters:** Prevents data poisoning, oracle extraction attacks, and test cheating. Even if an adversary inspects network payloads via browser developer tools, hidden inputs and expected answers are scrubbed server-side.
+- **Where It Is Used in This Project:** Enforced in `GradingHarness.sanitize_for_student()` and FastAPI endpoint schemas in [`backend/app/schemas/problem.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/schemas/problem.py).
+- **Real-World Examples:** ACM ICPC International Collegiate Programming Contest, University CS autograders (Autolab, Gradescope).
+
+### 13.3 Per-Test Resource Accounting: Time Limit Exceeded (TLE) vs. Memory Limit Exceeded (MLE)
+- **Concept Learned:** Asymptotic complexity enforcement via dual-layer kernel and application-level watchdog timers.
+- **Simple Explanation:** Algorithms that have improper asymptotic time complexity (e.g., $O(N^2)$ instead of $O(N \log N)$) exceed CPU wall-clock thresholds (TLE). Solutions that allocate unbounded data structures or recursion depth trigger physical memory cgroup caps (MLE) or kernel OOM reaping.
+- **Why It Matters:** Granular classification allows students to distinguish between algorithmic scaling bottlenecks (TLE) versus programmatic defects (Runtime Error / Segmentation Fault).
+- **Where It Is Used in This Project:** Measured per test vector in [`worker/grading/harness.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/grading/harness.py).
+- **Real-World Examples:** Google Code Jam, Meta Hacker Cup, TopCoder SRM.
+
+### 13.4 Output Normalization & Diffing Strategies
+- **Concept Learned:** Tolerant equivalence verification across platform line-endings and IEEE 754 precision artifacts.
+- **Simple Explanation:** Direct byte-for-byte matching is brittle: CRLF (`\r\n`) vs LF (`\n`) differences or trailing line spaces can cause correct algorithms to fail. Furthermore, floating-point math incurs rounding errors. The platform implements output normalization (CRLF unification, trailing whitespace pruning) and $\epsilon$-relative error tolerance ($\frac{|a - b|}{\max(1.0, |b|)} \le 10^{-6}$) for numeric problems.
+- **Why It Matters:** Prevents frustrating false-negative rejections while upholding rigorous algorithmic correctness.
+- **Where It Is Used in This Project:** Built into [`worker/grading/normalizer.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/grading/normalizer.py) and [`worker/grading/verifier.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/grading/verifier.py).
+- **Real-World Examples:** Codeforces `testlib.h` special judge checkers, Kattis problem verification suite.
+
+
 
 
 

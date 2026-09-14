@@ -7,6 +7,8 @@ import logging
 from redis.asyncio import Redis
 
 from worker.config import worker_settings
+from worker.grading.harness import GradingHarness
+from worker.grading.models import ComparisonMode, TestCaseData
 from worker.sandbox.models import ExecutionRequest
 from worker.tasks.execution import _stream_and_collect
 
@@ -58,24 +60,62 @@ class AsyncWorkerDaemon:
 
                 logger.info("Dequeued job for submission: %s", submission_id)
 
-                request = ExecutionRequest(
-                    source_code=task_data.get("source_code", ""),
-                    language=task_data.get("language", "python"),
-                    stdin_data=task_data.get("stdin_data"),
-                    timeout_seconds=float(task_data.get("timeout_seconds", 5.0)),
-                    memory_limit=task_data.get("memory_limit", "128m"),
-                    cpu_quota=int(task_data.get("cpu_quota", 50000)),
-                    max_pids=int(task_data.get("max_pids", 64)),
-                    max_output_bytes=int(task_data.get("max_output_bytes", 1048576)),
-                )
+                if task_data.get("action") == "grade" or "test_cases" in task_data:
+                    # Execute autograding job
+                    raw_cases = task_data.get("test_cases", [])
+                    tc_objects = [TestCaseData(**tc) for tc in raw_cases]
+                    mode_str = task_data.get("mode", "NORMALIZED")
+                    comp_mode = (
+                        ComparisonMode(mode_str)
+                        if mode_str in ComparisonMode.__members__
+                        else ComparisonMode.NORMALIZED
+                    )
 
-                # Execute sandbox and publish stream chunks
-                result = await _stream_and_collect(submission_id, request)
-                logger.info(
-                    "Finished job for submission: %s (Status: %s)",
-                    submission_id,
-                    result["status"],
-                )
+                    summary = await GradingHarness.evaluate_submission(
+                        submission_id=submission_id,
+                        problem_id=task_data.get("problem_id", ""),
+                        source_code=task_data.get("source_code", ""),
+                        language=task_data.get("language", "python"),
+                        test_cases=tc_objects,
+                        time_limit_ms=int(task_data.get("time_limit_ms", 2000)),
+                        memory_limit_mb=int(task_data.get("memory_limit_mb", 128)),
+                        mode=comp_mode,
+                    )
+
+                    # Persist grading result to Redis for quick retrieval
+                    await self._redis.set(
+                        f"rce:grading:{submission_id}",
+                        summary.model_dump_json(),
+                        ex=86400,
+                    )
+                    logger.info(
+                        "Finished grading job for submission %s: Status=%s, Score=%d/%d",
+                        submission_id,
+                        summary.overall_status.value,
+                        summary.total_score,
+                        summary.max_score,
+                    )
+                else:
+                    request = ExecutionRequest(
+                        source_code=task_data.get("source_code", ""),
+                        language=task_data.get("language", "python"),
+                        stdin_data=task_data.get("stdin_data"),
+                        timeout_seconds=float(task_data.get("timeout_seconds", 5.0)),
+                        memory_limit=task_data.get("memory_limit", "128m"),
+                        cpu_quota=int(task_data.get("cpu_quota", 50000)),
+                        max_pids=int(task_data.get("max_pids", 64)),
+                        max_output_bytes=int(
+                            task_data.get("max_output_bytes", 1048576)
+                        ),
+                    )
+
+                    # Execute sandbox and publish stream chunks
+                    result = await _stream_and_collect(submission_id, request)
+                    logger.info(
+                        "Finished job for submission: %s (Status: %s)",
+                        submission_id,
+                        result["status"],
+                    )
 
             except asyncio.CancelledError:
                 break

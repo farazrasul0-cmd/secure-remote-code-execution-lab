@@ -8,6 +8,8 @@ from typing import Any
 
 from worker.broker.redis_client import redis_broker
 from worker.celery_app import celery_app
+from worker.grading.harness import GradingHarness
+from worker.grading.models import ComparisonMode, TestCaseData
 from worker.janitor.reaper import JanitorReaper
 from worker.sandbox.factory import SandboxFactory
 from worker.sandbox.models import (
@@ -118,6 +120,56 @@ def execute_code(
         result["status"],
     )
     return result
+
+
+@celery_app.task(bind=True, name="worker.tasks.execution.grade_code")
+def grade_code(
+    self,
+    submission_id: str,
+    problem_id: str,
+    source_code: str,
+    language: str = "python",
+    test_cases: list[dict] | None = None,
+    time_limit_ms: int = 2000,
+    memory_limit_mb: int = 128,
+    mode: str = "NORMALIZED",
+    force_process: bool = False,
+) -> dict[str, Any]:
+    """Execute code against problem test cases, compute score, and produce evaluation summary."""
+    logger.info(
+        "Starting grading task for submission: %s (Problem: %s)",
+        submission_id,
+        problem_id,
+    )
+    tc_objects = [TestCaseData(**tc) for tc in (test_cases or [])]
+    comp_mode = (
+        ComparisonMode(mode)
+        if mode in ComparisonMode.__members__
+        else ComparisonMode.NORMALIZED
+    )
+
+    summary = asyncio.run(
+        GradingHarness.evaluate_submission(
+            submission_id=submission_id,
+            problem_id=problem_id,
+            source_code=source_code,
+            language=language,
+            test_cases=tc_objects,
+            time_limit_ms=time_limit_ms,
+            memory_limit_mb=memory_limit_mb,
+            mode=comp_mode,
+            force_process=force_process,
+        )
+    )
+    logger.info(
+        "Grading complete for submission %s: Status=%s, Score=%d/%d (%0.1f%%)",
+        submission_id,
+        summary.overall_status.value,
+        summary.total_score,
+        summary.max_score,
+        summary.percentage,
+    )
+    return summary.model_dump()
 
 
 @celery_app.task(name="worker.tasks.execution.reap_orphan_containers")

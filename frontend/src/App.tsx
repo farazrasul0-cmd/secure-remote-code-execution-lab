@@ -7,9 +7,11 @@ import { TelemetryPanel } from './components/TelemetryPanel';
 import { StdinDrawer } from './components/StdinDrawer';
 import { SubmissionHistory } from './components/SubmissionHistory';
 import { AuthModal } from './components/AuthModal';
+import { ProblemPanel } from './components/ProblemPanel';
+import { GradingScorecard } from './components/GradingScorecard';
 import { useExecutionStream } from './hooks/useExecutionStream';
 import { api } from './services/api';
-import { Submission, SupportedLanguage } from './types';
+import { GradingScorecard as IGradingScorecard, Submission, SupportedLanguage } from './types';
 
 const MainWorkspace: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -19,6 +21,9 @@ const MainWorkspace: React.FC = () => {
   const [isStdinOpen, setIsStdinOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [refreshHistoryTrigger, setRefreshHistoryTrigger] = useState<number>(0);
+  const [activeScorecard, setActiveScorecard] = useState<IGradingScorecard | null>(null);
+  const [isScorecardOpen, setIsScorecardOpen] = useState<boolean>(false);
+  const [isGrading, setIsGrading] = useState<boolean>(false);
 
   const stream = useExecutionStream({
     onFinish: () => {
@@ -51,6 +56,29 @@ const MainWorkspace: React.FC = () => {
     }
   };
 
+  const handleSubmitForGrading = async (problemSlug: string) => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    try {
+      setIsGrading(true);
+      setIsScorecardOpen(true);
+      const scorecard = await api.submitProblemForGrading(problemSlug, {
+        language: selectedLanguage,
+        source_code: code,
+      });
+      setActiveScorecard(scorecard);
+      setRefreshHistoryTrigger((prev) => prev + 1);
+    } catch (err: any) {
+      alert(`Grading submission failed: ${err.message || 'Unknown network error'}`);
+      setIsScorecardOpen(false);
+    } finally {
+      setIsGrading(false);
+    }
+  };
+
   const handleSelectHistoricalSubmission = (submission: Submission) => {
     setCode(submission.source_code);
     if (submission.language && ['python', 'c', 'cpp', 'rust', 'go', 'javascript'].includes(submission.language)) {
@@ -67,6 +95,12 @@ const MainWorkspace: React.FC = () => {
       <Navbar onOpenAuth={() => setIsAuthModalOpen(true)} />
 
       <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 sm:p-6 flex flex-col gap-4">
+        {/* Top Problem & Autograding Header Panel */}
+        <ProblemPanel
+          onSubmitForGrading={handleSubmitForGrading}
+          isGrading={isGrading}
+        />
+
         {/* Split Workstation Pane */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 items-stretch">
           {/* Left Column: Monaco Code Editor */}
@@ -120,6 +154,14 @@ const MainWorkspace: React.FC = () => {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      {/* Autograding Scorecard Modal */}
+      <GradingScorecard
+        scorecard={activeScorecard}
+        isOpen={isScorecardOpen}
+        onClose={() => setIsScorecardOpen(false)}
+        isSubmitting={isGrading}
       />
     </div>
   );

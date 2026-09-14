@@ -119,6 +119,30 @@ class ApiClient {
   async checkHealth(): Promise<{ status: string; checks: Record<string, unknown> }> {
     return this.request<{ status: string; checks: Record<string, unknown> }>('/api/v1/health');
   }
+
+  // Problems & Autograding API
+  async listProblems(difficulty?: string): Promise<import('../types').Problem[]> {
+    const query = difficulty ? `?difficulty=${difficulty}` : '';
+    return this.request<import('../types').Problem[]>(`/api/v1/problems${query}`);
+  }
+
+  async getProblem(identifier: string): Promise<import('../types').ProblemDetail> {
+    return this.request<import('../types').ProblemDetail>(`/api/v1/problems/${identifier}`);
+  }
+
+  async submitProblemForGrading(
+    identifier: string,
+    payload: { language: string; source_code: string }
+  ): Promise<import('../types').GradingScorecard> {
+    return this.request<import('../types').GradingScorecard>(`/api/v1/problems/${identifier}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getGradingScorecard(submissionId: string): Promise<import('../types').GradingScorecard> {
+    return this.request<import('../types').GradingScorecard>(`/api/v1/problems/submissions/${submissionId}/grading`);
+  }
 }
 
 export const api = new ApiClient();
