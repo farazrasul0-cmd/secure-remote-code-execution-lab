@@ -2,6 +2,79 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [1.0.0] - 2026-09-14
+### Added
+- **Production Multi-Stage Containerization (`frontend/Dockerfile`, `backend/Dockerfile`, `worker/Dockerfile`)**: Implemented multi-stage Docker builds reducing image sizes by >85% (purging compilation toolchains, npm devDependencies, and pip caches); enforced non-root execution (`UID 10001:GID 10001`) and integrated container `HEALTHCHECK` probes on all services.
+- **Production Docker Compose Orchestration (`deployment/docker-compose.prod.yml`)**: Designed production deployment manifest featuring dual-network segregation (`rce_public_network` for Nginx ingress, `rce_internal_network` for private microservices), `no-new-privileges: true`, resource limits (CPU quotas, RAM ceilings), and persistent volume mappings for PostgreSQL 16 and Redis 7 (AOF enabled).
+- **High-Performance Ingress Reverse Proxy (`deployment/nginx.conf`, `frontend/nginx.conf`)**: Configured Nginx with gzip asset compression, upstream keep-alive pooling, WebSocket upgrade headers, and OWASP security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`).
+- **Distributed Load Testing Suite (`benchmarks/load_test_k6.js`)**: Developed k6 performance test ramping from 1 to 25 virtual users simulating realistic student code submissions, measuring latency percentiles ($p50, p95, p99$) and validating Redis sliding window rate limiting.
+- **Automated Systems Benchmarking Engine (`benchmarks/benchmark_engine.py`)**: Built automated empirical evaluation harness measuring bare-metal vs. sandbox virtualization overhead (RQ1), Little's Law queueing throughput (RQ2), and 100% adversarial threat containment (RQ3); generated `benchmark_report.json` and `benchmark_report.md`.
+- **Academic Research & Systems Defense Documentation (`documentation/22_RESEARCH_VALUE.md`, `documentation/21_ARCHITECTURE_DECISIONS.md`, `documentation/18_DEPLOYMENT_ARCHITECTURE.md`, `documentation/04_TECHNOLOGY_STACK.md`)**: Synthesized comprehensive research findings answering three formal Research Questions with empirical data tables, architectural trade-off defenses, and Master's thesis interview talking points.
+
+## [0.8.0] - 2026-09-14
+### Added
+- **Adversarial Exploitation Test Suite (`test_adversarial.py`)**: Authored comprehensive security test suite verifying fork bomb mitigation (`pids_limit=64`), OOM memory exhaustion traps, restricted root filesystem write prevention, network exfiltration containment, and Seccomp-BPF default-deny syscall filters.
+- **Distributed Sliding Window Rate Limiter (`RateLimiter`)**: Engineered Redis Sorted Set (`ZSET`) sliding window rate limiter in `backend/app/core/rate_limiter.py` enforcing per-user submission quotas (`15/min`) with high-availability fail-open resilience and automated `Retry-After` header issuance.
+- **Prometheus Metrics & Telemetry Exporter (`metrics.py`, `endpoints/metrics.py`)**: Instrumented Prometheus telemetry collecting submission counts, wall-clock execution latency histograms, peak RAM histograms, active sandbox gauges, broker queue depths, and rate-limiting rejection counters; exposed at `/metrics` and `/api/v1/metrics`.
+- **Noisy-Neighbor Multi-Tenant Stress Benchmark (`test_noisy_neighbor.py`)**: Built stress test executing simultaneous rogue CPU-hog computations alongside interactive workloads, demonstrating zero starvation and strict CPU quota isolation via cgroups v2 (`cpu.max=50000 100000`).
+- **Shared Async Redis Dependency Module (`backend/app/core/redis.py`)**: Centralized Redis dependency injection to eliminate circular imports between API endpoints and rate limiting middleware.
+- **Expanded Pytest Test Suite**: Grew test coverage from 18 to 29 tests (100% pass rate, 79% codebase coverage).
+
+## [0.7.0] - 2026-09-12
+### Added
+- **Interactive Cloud IDE Architecture (`App.tsx`)**: Built modern split-pane workstation layout in React 18 and TypeScript with Tailwind CSS, coordinating the code editor, terminal, telemetry dashboard, and execution drawer.
+- **Monaco Editor Component (`CodeEditor.tsx`)**: Integrated `@monaco-editor/react` with Python 3.11 syntax highlighting, `vs-dark` theme, execution lockouts (`readOnly: isRunning`), and `Ctrl+Enter` shortcut execution command.
+- **Virtual Terminal Emulator (`TerminalView.tsx`)**: Integrated `xterm.js` with `FitAddon` and `ResizeObserver` supporting ANSI colors, carriage return handling (`convertEol: true`), custom dark theme palette, buffer copying, and 5000-line memory-capped scrollback.
+- **Custom WebSocket Stream Hook (`useExecutionStream.ts`)**: Implemented React hook managing connection lifecycles (`CONNECTING`, `STREAMING`, `FINISHED`, `ERROR`), deduplicating stream frames with monotonic sequence checks, and providing exponential backoff auto-reconnect.
+- **Execution Telemetry Dashboard (`TelemetryPanel.tsx`)**: Built real-time telemetry component displaying execution duration, peak RAM consumption, process exit codes, and Linux kernel sandbox isolation specifications (cgroups v2, Seccomp-BPF, `--net=none`).
+- **Standard Input Drawer (`StdinDrawer.tsx`)**: Built collapsible drawer allowing users to pipe custom multi-line input payloads into `sys.stdin` at container launch.
+- **Audit Log & History Drawer (`SubmissionHistory.tsx`)**: Implemented audit log panel querying `/api/v1/submissions` with code restoration into Monaco Editor.
+- **Authentication Modal & Context (`AuthModal.tsx`, `AuthContext.tsx`)**: Implemented modal supporting user registration, OAuth2 JWT login, and session persistence across page reloads.
+
+## [0.6.0] - 2026-09-12
+### Added
+- **Authentication & Cryptography Subsystem**: Implemented JWT access token generation, cryptographically signed token verification, and 72-byte safe salted password hashing using C-accelerated `bcrypt` in `backend/app/core/security.py`.
+- **Relational Domain Models & Alembic Migration**: Implemented SQLAlchemy 2.0 ORM entities `User` and `Submission` with PostgreSQL native UUID primary keys, automatic ISO timestamps, and cascading relationships; authored Alembic migration `001_initial_schema.py`.
+- **FastAPI Authentication Routes (`/api/v1/auth`)**: Implemented `/register`, OAuth2-compatible `/login`, and `/me` endpoints in `backend/app/api/v1/endpoints/auth.py` with Pydantic v2 schemas and validation.
+- **Submission Ingestion & Queue Dispatch (`/api/v1/submissions`)**: Built `POST /api/v1/submissions` creating database records in `PENDING` state and dispatching task payloads onto the Redis broker queue (`rce:submissions`) for worker consumption.
+- **Submission History & Detail Queries**: Built `GET /api/v1/submissions` with cursor/page pagination and `GET /api/v1/submissions/{id}` with user-isolated access controls.
+- **Full-Duplex WebSocket Streaming Gateway (`/ws/v1/submissions/{id}`)**: Built WebSocket endpoint with query-token authentication, Redis buffer replay (`StreamBuffer`), and real-time Pub/Sub subscriber relay to client terminals.
+- **End-to-End Integration Test Suite**: Added 4 integration tests in `backend/tests/test_auth_and_submissions.py` and `backend/tests/test_websocket.py` verifying full auth lifecycle, submission dispatch, unauthorized access rejection, and WebSocket security (18/18 tests passing with 76% codebase coverage).
+
+## [0.5.0] - 2026-09-11
+### Added
+- **Distributed Redis Broker Client (`RedisBroker`)**: Created async and sync Redis client connection pool manager in `worker/broker/redis_client.py` for task queues and Pub/Sub channel management.
+- **Stream Multiplexer (`StreamMultiplexer`)**: Engineered real-time stream broadcaster in `worker/streaming/multiplexer.py` assigning monotonic sequence numbers to stdout/stderr chunks and publishing to `rce:stream:<submission_id>`.
+- **Stream Catch-up Buffer (`StreamBuffer`)**: Implemented Redis list buffer in `worker/streaming/buffer.py` with 60-second TTL to support seamless client reconnection and stream replay.
+- **Asynchronous Worker Daemon (`AsyncWorkerDaemon`)**: Built standalone async queue consumer in `worker/daemon.py` using non-blocking Redis `BRPOP` loops with graceful shutdown handling.
+- **Celery Worker & Task Definitions**: Configured Celery application in `worker/celery_app.py` with fair scheduling policies (`worker_prefetch_multiplier=1`, `task_acks_late=True`, `task_reject_on_worker_lost=True`) and implemented `execute_code` task in `worker/tasks/execution.py`.
+- **Automated Container Janitor (`JanitorReaper`)**: Implemented background reaper daemon in `worker/janitor/reaper.py` scanning containers labeled `sandbox_type=isolated` and purging orphaned containers exceeding operational lease (30s).
+- **Comprehensive Worker Test Suite**: Added 6 tests in `backend/tests/test_worker_streaming.py` validating sequence monotonicity, buffer replay, janitor safety, and end-to-end execution streaming (14/14 tests passing across full test suite).
+
+## [0.4.0] - 2026-09-11
+### Added
+- **Core Execution Models & Enums**: Defined `ExecutionStatus` (`COMPLETED`, `TIME_LIMIT_EXCEEDED`, `MEMORY_LIMIT_EXCEEDED`, `OUTPUT_LIMIT_EXCEEDED`, `RUNTIME_ERROR`, `RESOURCE_LIMIT_EXCEEDED`), `ExecutionRequest`, `ExecutionResult`, and `StreamChunk` with Pydantic v2.
+- **Base Sandbox Interface (`BaseSandbox`)**: Implemented abstract contract supporting both batch execution (`execute`) and real-time streaming (`stream_execute`).
+- **Hardened Docker Sandbox (`DockerSandbox`)**: Implemented production OCI container runner enforcing cgroups v2 (`cpu_quota=50000`, `mem_limit=128m`, `memswap_limit=128m`, `pids_limit=64`), dropped capabilities (`CAP_DROP ALL`), read-only rootfs, in-memory `tmpfs` RAM disk (`/tmp`, 16MB), and zero network connectivity (`--net=none`).
+- **Subprocess Sandbox (`ProcessSandbox`)**: Created isolated testing and fallback sandbox with non-blocking async execution, stdin piping, and watchdog supervision.
+- **Dynamic Sandbox Factory (`SandboxFactory`)**: Factory pattern dynamically selecting `DockerSandbox` when Docker daemon is reachable and falling back to `ProcessSandbox` for environments without running Docker daemon.
+- **Stream Consumer & Output Capper (`StreamConsumer`)**: Enforced maximum byte ceiling (1MB hard cap) with real-time stream truncation, preventing buffer flooding and memory exhaustion.
+- **Watchdog Timer Supervisor**: Implemented hard timeout enforcement ($5.0\text{s}$ wall-clock limit) issuing POSIX `SIGKILL` on infinite loop detection.
+- **Comprehensive Unit & Adversarial Test Suite**: Added 6 tests in `backend/tests/test_execution_engine.py` verifying standard execution, stdin piping, infinite loop timeouts, runtime exceptions, output capping, and real-time streaming chunks (100% test pass rate).
+
+## [0.3.0] - 2026-09-11
+### Added
+- **Monorepo Directory Structure**: Scaffolded unified monorepo modules (`backend/`, `worker/`, `frontend/`, `docker/`, `database/`, `deployment/`).
+- **Local Infrastructure (Docker Compose)**: Configured `docker-compose.dev.yml` provisioning PostgreSQL 15 and Redis 7 with persistent volumes and healthchecks.
+- **Environment Configuration**: Created `.env.example` defining database, broker, security, and execution limit parameters.
+- **FastAPI Backend Skeleton**: Created ASGI application with lifespan management, CORS middleware, structured logging, and central v1 API router.
+- **System Health Endpoint**: Implemented `GET /api/v1/health` verifying API readiness, PostgreSQL connectivity, and Redis broker ping.
+- **Asynchronous Database Foundation**: Implemented SQLAlchemy 2.0 `create_async_engine`, async sessionmaker, and `get_db` FastAPI dependency; established Alembic async migration setup (`alembic.ini`, `env.py`).
+- **Execution Worker Skeleton**: Scaffolded Celery/async worker service with requirements, task definitions, and Dockerfile.
+- **Docker Sandbox Runtime**: Created minimal Alpine Python 3.11 Dockerfile (`uid=1001`) and custom Seccomp-BPF policy.
+- **Frontend Skeleton**: Scaffolded React 18 + TypeScript SPA with Vite, Monaco Editor, and xterm.js dependencies.
+- **Developer Tooling**: Configured `ruff.toml` for Python 3.11 linting/formatting, `.pre-commit-config.yaml`, `.editorconfig`, and automated pytest test suite (`test_health.py` with 100% pass rate).
+
 ## [0.2.0] - 2026-09-11
 ### Added
 - Created `documentation/13_REQUIREMENTS_SPECIFICATION.md` defining functional, non-functional, MVP, and measurable engineering requirements.

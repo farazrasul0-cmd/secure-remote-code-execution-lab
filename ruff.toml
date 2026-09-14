@@ -1,0 +1,45 @@
+# ==============================================================================
+# Ruff Configuration - High Performance Python Linter and Code Formatter
+# ==============================================================================
+
+target-version = "py311"
+line-length = 88
+indent-width = 4
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear (common bug patterns)
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade (modern Python syntax)
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "ASYNC", # flake8-async (async safety patterns)
+]
+ignore = [
+    "E501", # Line too long (handled by formatter)
+    "B008", # Do not perform function calls in argument defaults (FastAPI Depends)
+]
+fixable = ["ALL"]
+unfixable = []
+
+[lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["app.db.base.Base"]
+
+[lint.per-file-ignores]
+"backend/app/models/*" = ["TC004"]
+"backend/app/core/rate_limiter.py" = ["TC002"]
+"benchmarks/*" = ["E402", "W291"]
+
+[lint.isort]
+known-first-party = ["app"]
+combine-as-imports = true
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
