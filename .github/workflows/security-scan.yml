@@ -1,0 +1,61 @@
+name: Security Scanning & CVE Vulnerability Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly security scan every Monday at 04:00 UTC
+    - cron: '0 4 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trivy-repo-scan:
+    name: Trivy Filesystem & Secret Scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Vulnerability Scanner (Repo & Configs)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0' # Audit mode in CI; alerts on findings
+          ignore-unfixed: true
+
+  seccomp-validator:
+    name: Seccomp Profile Structure & Syscall Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Audit Seccomp Profiles
+        run: |
+          python -c "
+          import json, os
+          profiles = ['docker/python/seccomp-profile.json', 'docker/compiler/seccomp-profile.json']
+          for p in profiles:
+              if os.path.exists(p):
+                  with open(p) as f:
+                      data = json.load(f)
+                      assert data.get('defaultAction') in ['SCMP_ACT_ERRNO', 'SCMP_ACT_KILL'], f'Insecure default action in {p}'
+                      print(f'Verified valid Seccomp profile: {p}')
+          "
