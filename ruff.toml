@@ -33,6 +33,8 @@ runtime-evaluated-base-classes = ["app.db.base.Base"]
 "backend/app/models/*" = ["TC004"]
 "backend/app/core/rate_limiter.py" = ["TC002"]
 "benchmarks/*" = ["E402", "W291"]
+"worker/sandbox/polyglot/*" = ["TC001", "TC002", "TC003"]
+"worker/sandbox/process_sandbox.py" = ["TC003"]
 
 [lint.isort]
 known-first-party = ["app"]

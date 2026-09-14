@@ -2,6 +2,15 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [1.1.0] - 2026-09-14
+### Added
+- **Polyglot Strategy Engine (`worker/sandbox/polyglot/`)**: Implemented the Strategy Design Pattern for multi-language execution runtimes, introducing `BaseLanguageStrategy`, `LanguageRegistry`, and dedicated strategies for Python 3.12, C17 (GCC 14), C++20 (G++ 14), Rust 2021, Go 1.22, and JavaScript (Node.js 20).
+- **Two-Phase Compilation & Execution Engine (`process_sandbox.py`, `models.py`)**: Engineered asymmetric two-phase sandbox lifecycle decoupling compiler analysis (Stage 1) from binary execution (Stage 2); added `COMPILE_ERROR` status with full diagnostic traceback capture without consuming runtime timeout limits.
+- **Defensive Binary Compiler Hardening**: Configured C/C++ compilation with stack canaries (`-fstack-protector-strong`), Position Independent Executables (`-fPIE -pie`), Full RELRO (`-Wl,-z,relro,-z,now`), non-executable stack (`-z noexecstack`), memory bounds fortification (`-D_FORTIFY_SOURCE=2`), and template recursion caps (`-ftemplate-depth=128`).
+- **Language Exposition API (`/api/v1/languages`)**: Added REST endpoint serving supported runtimes, file extensions, and starter code templates.
+- **Frontend Polyglot IDE Support (`CodeEditor.tsx`, `App.tsx`, `types/index.ts`)**: Integrated multi-language dropdown in Monaco Editor, with syntax highlighting and pre-populated starter templates for all 6 supported languages.
+- **Polyglot Test Suite (`test_polyglot.py`)**: Added 5 unit and integration tests verifying strategy dispatch, compiler flag enforcement, compilation error capture, and languages API exposition (growing test suite to 34/34 passing tests).
+
 ## [1.0.0] - 2026-09-14
 ### Added
 - **Production Multi-Stage Containerization (`frontend/Dockerfile`, `backend/Dockerfile`, `worker/Dockerfile`)**: Implemented multi-stage Docker builds reducing image sizes by >85% (purging compilation toolchains, npm devDependencies, and pip caches); enforced non-root execution (`UID 10001:GID 10001`) and integrated container `HEALTHCHECK` probes on all services.
