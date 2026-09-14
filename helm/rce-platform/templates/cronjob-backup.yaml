@@ -1,0 +1,84 @@
+{{- if .Values.backup.enabled }}
+# -- Automated PostgreSQL Disaster Recovery & Backup CronJob --------------------
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "rce-platform.fullname" . }}-postgres-backup
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "rce-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "rce-platform.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: postgres-backup
+              image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: false
+                capabilities:
+                  drop:
+                    - ALL
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "rce-platform.fullname" . }}-secrets
+                      key: POSTGRES_PASSWORD
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  BACKUP_DIR="/backups"
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  FILENAME="rce_lab_backup_${TIMESTAMP}.sql.gz"
+                  echo "[$(date)] Starting compressed PostgreSQL database backup..."
+                  pg_dump -h {{ include "rce-platform.fullname" . }}-postgres -U {{ .Values.postgres.env.POSTGRES_USER }} {{ .Values.postgres.env.POSTGRES_DB }} | gzip > "${BACKUP_DIR}/${FILENAME}"
+                  echo "[$(date)] Successfully created ${BACKUP_DIR}/${FILENAME}"
+                  # Rotate local retention (keep latest 7 backups)
+                  ls -tp "${BACKUP_DIR}"/rce_lab_backup_*.sql.gz | grep -v '/$' | tail -n +8 | xargs -I {} rm -- {} || true
+                  echo "[$(date)] Backup rotation complete."
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: {{ include "rce-platform.fullname" . }}-backup-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "rce-platform.fullname" . }}-backup-pvc
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "rce-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.backup.storageSize | default "20Gi" }}
+{{- end }}

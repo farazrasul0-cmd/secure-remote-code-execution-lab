@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.main import app
 
 # Import all models to register with Base.metadata
+from app.models.problem import Problem, TestCase  # noqa: F401
 from app.models.submission import Submission  # noqa: F401
 from app.models.user import User  # noqa: F401
 
