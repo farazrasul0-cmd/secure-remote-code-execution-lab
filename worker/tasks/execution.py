@@ -66,6 +66,7 @@ async def _stream_and_collect(
     submission_id: str,
     request: ExecutionRequest,
     force_process: bool = False,
+    trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Asynchronous core running sandbox, multiplexing streams to Redis, and gathering metrics."""
     sandbox = SandboxFactory.create_sandbox(force_process=force_process)
@@ -87,36 +88,64 @@ async def _stream_and_collect(
     }
 
     try:
-        async for chunk in sandbox.stream_execute(request):
-            # 1. Publish to Redis Pub/Sub and buffer in Redis list
-            await multiplexer.publish_chunk_async(redis_client, chunk)
+        from app.core.telemetry import TraceContextManager
 
-            # 2. Accumulate logs for final return
-            if chunk.event == StreamEventType.STDOUT:
-                stdout_parts.append(chunk.data)
-            elif chunk.event == StreamEventType.STDERR:
-                stderr_parts.append(chunk.data)
-            elif chunk.event == StreamEventType.COMPLETE:
-                with contextlib.suppress(Exception):
-                    final_payload = json.loads(chunk.data)
-
-    except Exception as exc:
-        logger.error(
-            "Exception during execution of submission %s: %s", submission_id, exc
+        span_ctx = TraceContextManager.start_as_current_span(
+            "rce.worker.sandbox_execution",
+            carrier=trace_context,
+            attributes={
+                "rce.submission_id": submission_id,
+                "rce.language": request.language,
+                "rce.timeout_seconds": request.timeout_seconds,
+            },
         )
-        err_chunk = StreamChunk(
-            event=StreamEventType.ERROR,
-            data=f"[SYSTEM ERROR: {str(exc)}]",
-        )
-        await multiplexer.publish_chunk_async(redis_client, err_chunk)
-        final_payload["status"] = ExecutionStatus.SYSTEM_ERROR.value
-        final_payload["error_message"] = str(exc)
+    except Exception:
+        span_ctx = contextlib.nullcontext()
 
-    finally:
-        input_task.cancel()
-        with contextlib.suppress(Exception):
-            await input_task
-        await redis_client.aclose()
+    with span_ctx as span:
+        try:
+            async for chunk in sandbox.stream_execute(request):
+                # 1. Publish to Redis Pub/Sub and buffer in Redis list
+                await multiplexer.publish_chunk_async(redis_client, chunk)
+
+                # 2. Accumulate logs for final return
+                if chunk.event == StreamEventType.STDOUT:
+                    stdout_parts.append(chunk.data)
+                elif chunk.event == StreamEventType.STDERR:
+                    stderr_parts.append(chunk.data)
+                elif chunk.event == StreamEventType.COMPLETE:
+                    with contextlib.suppress(Exception):
+                        final_payload = json.loads(chunk.data)
+
+            if span and hasattr(span, "set_attribute"):
+                span.set_attribute(
+                    "rce.status",
+                    final_payload.get("status", ExecutionStatus.COMPLETED.value),
+                )
+                if final_payload.get("exit_code") is not None:
+                    span.set_attribute("rce.exit_code", final_payload.get("exit_code"))
+
+        except Exception as exc:
+            logger.error(
+                "Exception during execution of submission %s: %s",
+                submission_id,
+                exc,
+            )
+            err_chunk = StreamChunk(
+                event=StreamEventType.ERROR,
+                data=f"[SYSTEM ERROR: {str(exc)}]",
+            )
+            await multiplexer.publish_chunk_async(redis_client, err_chunk)
+            final_payload["status"] = ExecutionStatus.SYSTEM_ERROR.value
+            final_payload["error_message"] = str(exc)
+            if span and hasattr(span, "record_exception"):
+                span.record_exception(exc)
+
+        finally:
+            input_task.cancel()
+            with contextlib.suppress(Exception):
+                await input_task
+            await redis_client.aclose()
 
     return {
         "submission_id": submission_id,
@@ -142,6 +171,7 @@ def execute_code(
     max_pids: int = 64,
     max_output_bytes: int = 1048576,
     force_process: bool = False,
+    trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute code payload in isolated sandbox and stream output chunks via Redis Pub/Sub."""
     logger.info("Starting execution task for submission: %s", submission_id)
@@ -159,7 +189,12 @@ def execute_code(
 
     # Execute async pipeline within synchronous Celery task
     result = asyncio.run(
-        _stream_and_collect(submission_id, request, force_process=force_process)
+        _stream_and_collect(
+            submission_id,
+            request,
+            force_process=force_process,
+            trace_context=trace_context,
+        )
     )
     logger.info(
         "Completed execution task for submission: %s (Status: %s)",

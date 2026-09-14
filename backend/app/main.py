@@ -12,6 +12,7 @@ from app.api.v1.endpoints.websocket import router as ws_router
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.telemetry import init_tracer
 from app.db.session import engine
 
 
@@ -24,6 +25,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         settings.VERSION,
         settings.ENVIRONMENT,
     )
+    if settings.OTEL_ENABLED:
+        init_tracer(service_name=settings.OTEL_SERVICE_NAME)
+        try:
+            from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+            FastAPIInstrumentor.instrument_app(app)
+            logger.info("FastAPI OpenTelemetry instrumentation active.")
+        except Exception as otel_err:
+            logger.warning(
+                "Could not instrument FastAPI with OpenTelemetry: %s", otel_err
+            )
     yield
     logger.info("Shutting down application and disposing database engine...")
     await engine.dispose()

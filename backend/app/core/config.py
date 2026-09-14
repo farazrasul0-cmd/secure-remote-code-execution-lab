@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     RATE_LIMIT_SUBMISSIONS_PER_MINUTE: int = 15
     RATE_LIMIT_LOGIN_PER_MINUTE: int = 10
 
+    # OpenTelemetry & Distributed Tracing
+    OTEL_ENABLED: bool = True
+    OTEL_SERVICE_NAME: str = "rce-backend-api"
+    OTEL_EXPORTER_OTLP_ENDPOINT: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

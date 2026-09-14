@@ -490,7 +490,32 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
   The `SandboxFactory` dynamically inspects host platform capabilities (`/dev/kvm`, Docker daemon socket) to negotiate the highest-security driver available.
 - **Why It Matters:** Enables the same platform codebase to run seamlessly on developer laptops (Windows/macOS), standard cloud Kubernetes clusters, and specialized bare-metal KVM instances without manual re-architecting.
 - **Where It Is Used in This Project:** Implemented in [`worker/sandbox/factory.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/factory.py) and benchmarked in [`worker/sandbox/benchmark/harness.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/benchmark/harness.py).
-- **Real-World Examples:** Kubernetes Container Runtime Interface (CRI) supporting containerd, CRI-O, Kata Containers, and gVisor runsc.
+---
+
+## 17. Distributed Observability, OpenTelemetry & W3C Context Propagation
+
+### 17.1 Distributed Tracing vs. Traditional Metrics & Log Aggregation
+- **Concept Learned:** Connecting causal transaction lifecycles across asynchronous network boundaries using Directed Acyclic Graphs (DAGs) of Spans.
+- **Simple Explanation:** Metrics inform you *that* high latency exists; logs describe discrete local operations; distributed tracing shows the end-to-end voyage of a single execution submission traversing FastAPI, Redis FIFO queues, Celery worker threads, subprocess runtimes, and WebSocket streaming buffers.
+- **Why It Matters:** In asynchronous message-driven platforms, traditional stack traces stop at the queue producer boundary. Distributed tracing preserves the end-to-end timeline across thread pools and network transports.
+- **Where It Is Used in This Project:** Initialized in [`backend/app/core/telemetry.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/core/telemetry.py) and activated across the FastAPI lifespan in [`backend/app/main.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/main.py).
+- **Real-World Examples:** Jaeger, Zipkin, Datadog APM, AWS X-Ray, Google Cloud Trace.
+
+### 17.2 W3C TraceContext Specification (`traceparent` standard)
+- **Concept Learned:** Standardization of distributed context propagation headers across heterogeneous distributed services.
+- **Simple Explanation:** W3C TraceContext defines a universal 4-part string format:
+  `00-{trace_id_32_hex}-{parent_span_id_16_hex}-{trace_flags_2_hex}`.
+  FastAPI serializes this header into the Celery task dictionary. The Celery worker parses the `traceparent` to spawn child spans under the identical 128-bit `trace_id`.
+- **Why It Matters:** Guarantees vendor-neutral observability without proprietary vendor shims or payload corruption.
+- **Where It Is Used in This Project:** Propagated via `TraceContextManager.inject_context()` in [`backend/app/services/submission_service.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/services/submission_service.py) and extracted in [`worker/tasks/execution.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/tasks/execution.py).
+- **Real-World Examples:** W3C Distributed Tracing Recommendation, CNCF OpenTelemetry Baggage and TraceContext standards.
+
+### 17.3 Semantic Conventions & Execution Telemetry
+- **Concept Learned:** Standardized naming conventions for distributed span attributes and exceptions.
+- **Simple Explanation:** Attaching standardized attributes (`rce.submission_id`, `rce.language`, `rce.status`, `rce.exit_code`) to execution spans enables high-cardinality filtering in APM dashboards (e.g. comparing C++ compilation latency vs. Python runtime latency under high queue load).
+- **Why It Matters:** Eliminates ad-hoc string logging in favor of structured, queryable distributed span trees.
+- **Where It Is Used in This Project:** Tagged inside `_stream_and_collect` in [`worker/tasks/execution.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/tasks/execution.py).
+- **Real-World Examples:** OpenTelemetry Semantic Conventions for HTTP, RPC, and Messaging Systems.
 
 
 
