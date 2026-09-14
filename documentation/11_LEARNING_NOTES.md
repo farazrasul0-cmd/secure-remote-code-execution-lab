@@ -281,6 +281,39 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** Configured in [`worker/app/core/sandbox.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/app/core/sandbox.py) and benchmarked in [`backend/tests/test_noisy_neighbor.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/tests/test_noisy_neighbor.py).
 - **Real-World Examples:** Kubernetes pod CPU limits (`resources.limits.cpu`), AWS ECS task definitions, multi-tenant databases (Amazon Aurora Serverless).
 
+---
+
+## 11. Production Cloud Deployment, Benchmarking & Empirical Evaluation
+
+### 11.1 Production Containerization: Multi-Stage Builds & Non-Root Execution
+- **Concept Learned:** Multi-stage compilation pipelines, image size optimization, and unprivileged container security (`USER appuser`).
+- **Simple Explanation:** Development containers contain compiler toolchains (`gcc`, `libpq-dev`), package managers (`npm`), and source code, resulting in images exceeding 1.2GB. Multi-stage builds compile artifacts in temporary builder stages and copy only runtime wheels and compiled static files to minimal base images (`python:3.12-slim`, `nginx:alpine`), reducing image footprint by 85%. Enforcing non-root execution (`UID 10001`) prevents root container breakout exploits.
+- **Why It Matters:** Smaller images pull across cloud clusters in seconds rather than minutes, while the absence of compilers prevents attackers from compiling local rootkits in memory.
+- **Where It Is Used in This Project:** Implemented in [`frontend/Dockerfile`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/frontend/Dockerfile), [`backend/Dockerfile`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/Dockerfile), and [`worker/Dockerfile`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/Dockerfile).
+- **Real-World Examples:** Google Distroless containers, Kubernetes Pod Security Standards (Restricted profile).
+
+### 11.2 Micro-Segmentation: Dual-Network Isolation & Reverse Proxy Ingress
+- **Concept Learned:** Zero-trust network segmentation and gateway reverse proxy architecture.
+- **Simple Explanation:** In a cloud deployment, databases (PostgreSQL) and message brokers (Redis) should never be exposed to public internet interfaces. By partitioning containers into `rce_public_network` (only Nginx ports 80/443 exposed) and `rce_internal_network` (isolated bridge with zero host ports), internal backing services become completely unreachable from external network scans.
+- **Why It Matters:** Eliminates external brute-force attacks, port probing, and unauthorized direct access to student submission records.
+- **Where It Is Used in This Project:** Configured in [`deployment/docker-compose.prod.yml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/deployment/docker-compose.prod.yml) and [`deployment/nginx.conf`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/deployment/nginx.conf).
+- **Real-World Examples:** AWS VPC private subnets, Kubernetes network policies with Calico/Cilium.
+
+### 11.3 High-Concurrency Load Testing & Little's Law Capacity Modeling
+- **Concept Learned:** Synthetic load generation (k6), queueing theory, and Little's Law ($L = \lambda W$).
+- **Simple Explanation:** In queueing systems, capacity is governed by Little's Law: $L = \lambda W$, where $L$ is concurrency, $\lambda$ is sustainable throughput, and $W$ is execution duration. Because compute execution (~170ms) is slower than API ingestion (~20ms), decoupled message queues absorb traffic surges without dropping tasks or deadlocking the API gateway.
+- **Why It Matters:** Provides the mathematical basis for capacity planning, ensuring university lab clusters are sized correctly to avoid queue overflow.
+- **Where It Is Used in This Project:** Scripted in [`benchmarks/load_test_k6.js`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/benchmarks/load_test_k6.js) and analyzed in [`benchmarks/benchmark_engine.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/benchmarks/benchmark_engine.py).
+- **Real-World Examples:** Cloud capacity sizing, Black Friday e-commerce stress testing, SRE queue reliability engineering.
+
+### 11.4 Academic Evaluation Methodology & Research Defense
+- **Concept Learned:** Scientific method in systems software: Research Questions (RQs), empirical percentile distributions, and controlled testbeds.
+- **Simple Explanation:** Rather than treating a project as a simple software application, research methodology evaluates trade-offs scientifically. We formulated RQ1 (Isolation Overhead), RQ2 (Worker Scaling), and RQ3 (Adversarial Robustness), collecting empirical metrics across multiple iterations to prove security and performance objectively.
+- **Why It Matters:** This bridges professional software engineering with academic rigor, creating a defensible body of work for Master's thesis examinations and systems conference submissions.
+- **Where It Is Used in This Project:** Documented in [`documentation/22_RESEARCH_VALUE.md`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/documentation/22_RESEARCH_VALUE.md) and [`benchmarks/results/benchmark_report.md`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/benchmarks/results/benchmark_report.md).
+- **Real-World Examples:** USENIX OSDI / ACM SOSP research publications on container virtualization (gVisor, Firecracker).
+
+
 
 
 

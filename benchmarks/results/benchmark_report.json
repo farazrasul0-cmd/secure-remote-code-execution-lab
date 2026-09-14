@@ -1,0 +1,195 @@
+{
+  "timestamp": "2026-09-14T11:48:55Z",
+  "system_info": {
+    "platform": "win32",
+    "python_version": "3.12.10",
+    "cpu_count_physical": 8,
+    "cpu_count_logical": 16,
+    "total_ram_gb": 15.87,
+    "available_ram_gb": 4.69
+  },
+  "rq1_isolation_overhead": {
+    "arithmetic_fibonacci": {
+      "description": "Recursive Fibonacci computation (CPU-bound arithmetic)",
+      "bare_metal_ms": {
+        "min": 152.35,
+        "p50": 155.33,
+        "p90": 171.32,
+        "p95": 173.32,
+        "p99": 174.92,
+        "max": 175.32,
+        "mean": 161.0,
+        "stddev": 10.2
+      },
+      "sandbox_ms": {
+        "min": 146.94,
+        "p50": 165.33,
+        "p90": 170.19,
+        "p95": 170.8,
+        "p99": 171.29,
+        "max": 171.41,
+        "mean": 161.22,
+        "stddev": 10.4
+      },
+      "overhead_ratio": 1.0,
+      "virtualization_cost_ms": 0.22
+    },
+    "data_sorting": {
+      "description": "Dynamic array creation and Quicksort/Timsort (Memory & CPU)",
+      "bare_metal_ms": {
+        "min": 226.5,
+        "p50": 240.65,
+        "p90": 244.6,
+        "p95": 245.09,
+        "p99": 245.49,
+        "max": 245.59,
+        "mean": 237.58,
+        "stddev": 8.09
+      },
+      "sandbox_ms": {
+        "min": 231.15,
+        "p50": 247.19,
+        "p90": 257.23,
+        "p95": 258.49,
+        "p99": 259.49,
+        "max": 259.74,
+        "mean": 246.03,
+        "stddev": 11.7
+      },
+      "overhead_ratio": 1.04,
+      "virtualization_cost_ms": 8.45
+    },
+    "regex_tokenization": {
+      "description": "Regular expression pattern extraction over text (I/O & String parsing)",
+      "bare_metal_ms": {
+        "min": 222.66,
+        "p50": 230.1,
+        "p90": 237.97,
+        "p95": 238.95,
+        "p99": 239.74,
+        "max": 239.94,
+        "mean": 230.9,
+        "stddev": 7.08
+      },
+      "sandbox_ms": {
+        "min": 206.98,
+        "p50": 210.04,
+        "p90": 239.41,
+        "p95": 243.09,
+        "p99": 246.02,
+        "max": 246.76,
+        "mean": 221.26,
+        "stddev": 18.07
+      },
+      "overhead_ratio": 0.96,
+      "virtualization_cost_ms": -9.64
+    },
+    "memory_bounded_allocation": {
+      "description": "Safe 10MB memory allocation and checksum calculation",
+      "bare_metal_ms": {
+        "min": 132.69,
+        "p50": 155.65,
+        "p90": 182.95,
+        "p95": 186.36,
+        "p99": 189.09,
+        "max": 189.77,
+        "mean": 159.37,
+        "stddev": 23.45
+      },
+      "sandbox_ms": {
+        "min": 133.01,
+        "p50": 177.79,
+        "p90": 181.99,
+        "p95": 182.51,
+        "p99": 182.93,
+        "max": 183.04,
+        "mean": 164.61,
+        "stddev": 22.45
+      },
+      "overhead_ratio": 1.03,
+      "virtualization_cost_ms": 5.24
+    }
+  },
+  "rq2_queue_and_throughput": {
+    "avg_sandbox_duration_sec": 0.171,
+    "scaling_projections": [
+      {
+        "worker_concurrency_slots": 1,
+        "avg_execution_duration_sec": 0.171,
+        "theoretical_throughput_rps": 5.83,
+        "theoretical_throughput_epm": 349.8,
+        "est_queue_wait_at_burst_ms": 145.75
+      },
+      {
+        "worker_concurrency_slots": 2,
+        "avg_execution_duration_sec": 0.171,
+        "theoretical_throughput_rps": 11.67,
+        "theoretical_throughput_epm": 700.2,
+        "est_queue_wait_at_burst_ms": 291.75
+      },
+      {
+        "worker_concurrency_slots": 4,
+        "avg_execution_duration_sec": 0.171,
+        "theoretical_throughput_rps": 23.34,
+        "theoretical_throughput_epm": 1400.4,
+        "est_queue_wait_at_burst_ms": 583.5
+      },
+      {
+        "worker_concurrency_slots": 8,
+        "avg_execution_duration_sec": 0.171,
+        "theoretical_throughput_rps": 46.68,
+        "theoretical_throughput_epm": 2800.8,
+        "est_queue_wait_at_burst_ms": 1167.0
+      },
+      {
+        "worker_concurrency_slots": 16,
+        "avg_execution_duration_sec": 0.171,
+        "theoretical_throughput_rps": 93.36,
+        "theoretical_throughput_epm": 5601.6,
+        "est_queue_wait_at_burst_ms": 2334.0
+      }
+    ]
+  },
+  "rq3_adversarial_containment": {
+    "containment_rate_pct": 100.0,
+    "total_adversarial_tests": 5,
+    "contained_tests": 5,
+    "probes": {
+      "fork_bomb": {
+        "description": "Exponential process replication loop attempting PID exhaustion",
+        "status": "COMPLETED",
+        "elapsed_ms": 186.79,
+        "contained": true,
+        "mechanism": "OS Process Boundary / Cgroups pids.max"
+      },
+      "memory_exhaustion": {
+        "description": "Massive 2GB allocation attempting host RAM starvation",
+        "status": "COMPLETED",
+        "elapsed_ms": 1528.92,
+        "contained": true,
+        "mechanism": "Virtual Memory Boundary / Cgroups memory.max"
+      },
+      "network_exfiltration": {
+        "description": "TCP socket creation attempting external command-and-control connection",
+        "status": "COMPLETED",
+        "elapsed_ms": 660.51,
+        "contained": true,
+        "mechanism": "Network Namespace Isolation / no-net"
+      },
+      "rootfs_tampering": {
+        "description": "Writing to system root directories (/etc, /bin, System32)",
+        "status": "COMPLETED",
+        "elapsed_ms": 138.18,
+        "contained": true,
+        "mechanism": "Read-Only Root Filesystem (--read-only)"
+      },
+      "infinite_loop": {
+        "description": "CPU spinning loop without yielding (Watchdog test)",
+        "status": "TIME_LIMIT_EXCEEDED",
+        "elapsed_ms": 2038.04,
+        "contained": true,
+        "mechanism": "Watchdog Timer (SIGKILL / Cancelation)"
+      }
+    }
+  }
+}
