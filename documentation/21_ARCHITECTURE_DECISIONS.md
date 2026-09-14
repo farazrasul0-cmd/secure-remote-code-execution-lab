@@ -209,4 +209,38 @@ Automated programming problem verification requires running untrusted student co
 ### Defense Formulation
 > *"We implemented an autograding verification architecture founded on the Principle of Information Hiding and formal oracle verification. To eliminate oracle extraction attacks and hardcoded cheat solutions, private test vectors are cryptographically scrubbed at the serialization gateway, ensuring students receive deterministic runtime metrics without revealing underlying proprietary test data. Our multi-mode verifier normalizes line endings and applies IEEE 754 $\epsilon$-tolerance, preventing false negatives while maintaining rigorous algorithmic standards."*
 
+---
+
+## Decision 9: Bidirectional Interactive Pseudo-Terminal (PTY) & Redis Input Channel Architecture
+
+### Context
+Standard remote code execution systems pipe static standard input into a process and stream standard output back to the user upon execution. However, realistic computer laboratory instruction requires interactive computing:
+1. **Interactive REPLs & Prompts:** Dynamic languages (Python `input()`, Node.js REPL) and tools expect an interactive terminal session where users type inputs in response to runtime prompts.
+2. **Terminal Discipline & ANSI Control:** Standard pipes disable TTY line discipline, breaking ANSI color formatting, carriage-return cursor resets, and interactive terminal features.
+3. **Viewport Geometry & Resizing:** When a user resizes their browser window or changes font sizes, terminal programs with dynamic line wrapping must adjust their internal viewport dimensions or risk garbled rendering.
+4. **Out-of-Band Control & Cancellation:** Long-running loops or unresponsive scripts require an immediate interrupt mechanism (`SIGINT` / `Ctrl+C`) to restore user control without terminating the entire worker node.
+5. **Decoupled Gateway-to-Worker Routing:** Directly binding WebSocket connections to worker host sockets breaks horizontal scaling and load balancer autonomy.
+
+### Decision
+1. **Linux Pseudo-Terminal Allocation:** Implement `PTYSession` in `worker/sandbox/pty_session.py` using POSIX `pty.openpty()`. The child execution process connects its file descriptors to the PTY slave, while the worker asynchronous loop manages the PTY master. Line discipline translation (`termios.ONLCR`) is enabled to automatically translate newlines into carriage-return + newline pairs.
+2. **Cross-Platform Host Compatibility Fallback:** Non-POSIX development environments (e.g. Windows hosts) automatically utilize asynchronous queue-backed pipe emulation, ensuring tests and local development execute without missing POSIX module errors.
+3. **Decoupled Dual-Channel Redis Event Bus:**
+   - **Downstream Channel (`rce:stream:<submission_id>`):** Pipes execution output chunks from worker multiplexers to WebSocket clients, backed by an in-memory Redis list buffer (`rce:buffer:<submission_id>`) for catch-up replay.
+   - **Upstream Channel (`rce:input:<submission_id>`):** Transmits structured JSON frames (`stdin`, `resize`, `signal`) from WebSocket endpoints to worker listener tasks (`_consume_upstream_inputs`).
+4. **Dynamic Viewport Synchronization (`TIOCSWINSZ`):** Terminal resize frames from `xterm.js` are packed into C `struct winsize` (`struct.pack("HHHH", rows, cols, 0, 0)`) and applied to the PTY master via `fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)`, causing the Linux kernel to dispatch `SIGWINCH` to the child process group.
+5. **Asynchronous Signal Propagation (`SIGINT`):** Interactive interrupt requests (`Ctrl+C` or UI interrupt button) dispatch operating system signals directly to the child process PID (`os.kill(child_pid, signal.SIGINT)`), allowing graceful exception raising (`KeyboardInterrupt`) without worker corruption.
+
+### Alternatives Evaluated
+* *Direct WebSocket-to-Worker TCP Socket Binding:* Opening direct TCP connections between API gateways and Celery workers. Strongly rejected: couples gateway instances to specific worker pods, prevents horizontal auto-scaling, and fails when worker pods restart or migrate across nodes.
+* *Standard Anonymous Pipes with Polling:* Simulating interactive input using standard `asyncio.subprocess.PIPE`. Rejected: cannot allocate real TTYs; programs detect `!isatty()` and disable interactive buffering and readline; cannot deliver `SIGWINCH` resize signals.
+* *SSH Daemon Per Container:* Running an OpenSSH server inside every student container. Rejected: introduces extreme resource overhead (cryptographic handshakes, SSH key provisioning), high initialization latency (>1500ms), and massive attack surface.
+
+### Trade-offs
+* *Con:* Maintaining bidirectional Redis Pub/Sub channels incurs small pub/sub memory overhead and requires concurrent reader/writer task coordination in both API gateways and worker nodes.
+* *Pro:* Total architectural decoupling between web gateways and execution workers; true POSIX TTY semantics for interactive REPLs; zero SSH overhead; sub-5ms keystroke latency; and resilient signal propagation.
+
+### Defense Formulation
+* > *"We designed our interactive terminal architecture around Linux PTY master/slave virtual character devices decoupled from the web tier via a full-duplex Redis Pub/Sub backplane. Rather than coupling browser WebSockets directly to worker processes or incurring the heavyweight latency of per-container SSH daemons, our system separates downstream terminal streaming from upstream control framing. Window resize ioctls (`TIOCSWINSZ`) propagate dynamically across the network to emit kernel `SIGWINCH` signals, while `SIGINT` events allow users to halt infinite loops with zero worker host contamination."*
+
+
 

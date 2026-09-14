@@ -131,6 +131,9 @@ const MainWorkspace: React.FC = () => {
               <TerminalView
                 chunks={stream.chunks}
                 streamState={stream.state}
+                onData={stream.sendInput}
+                onResize={stream.sendResize}
+                onSignal={stream.sendSignal}
               />
             </div>
             <div>

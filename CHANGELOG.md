@@ -2,6 +2,14 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [1.3.0] - 2026-09-14
+### Added
+- **Bidirectional Interactive Pseudo-Terminal (PTY) (`worker/sandbox/pty_session.py`)**: Implemented low-level POSIX PTY allocation using `pty.openpty()`, non-blocking I/O (`os.O_NONBLOCK`), newline line discipline translation (`termios.ONLCR`), cross-platform non-POSIX fallback, and dynamic terminal window sizing via `TIOCSWINSZ` ioctl.
+- **Upstream Input & Control Consumer (`worker/tasks/execution.py`)**: Engineered asynchronous subscriber task listening to Redis Pub/Sub channel `rce:input:<submission_id>`, dynamically routing upstream `stdin` keystrokes, `resize` events, and `signal` dispatches (`SIGINT`) directly to active sandbox processes and PTY sessions.
+- **Full-Duplex Bidirectional WebSocket Gateway (`backend/app/api/v1/endpoints/websocket.py`)**: Refactored WebSocket handler into concurrent `downstream_pump` and `upstream_pump` coroutines, streaming live terminal outputs to the browser while concurrently accepting user keystrokes, viewport geometry adjustments, and out-of-band interrupt requests.
+- **Interactive Terminal UI & Keystroke Capture (`TerminalView.tsx`, `useExecutionStream.ts`, `App.tsx`)**: Upgraded `xterm.js` terminal view with interactive cursor blinking, `onData` keystroke piping, `onResize` geometry propagation, upstream input dispatch methods (`sendInput`, `sendResize`, `sendSignal`), and an interactive `Ctrl+C` interrupt button for aborting runaway executions.
+- **Interactive PTY Test Suite (`test_interactive_terminal.py`)**: Authored 7 comprehensive unit and integration tests verifying PTY allocation, non-POSIX fallbacks, window size ioctl packing, upstream Redis message routing, full-duplex WebSocket framing, and process signal delivery (expanding the test suite to 47/47 passing tests).
+
 ## [1.2.0] - 2026-09-14
 ### Added
 - **Automated Autograding & Problem Verification Engine (`worker/grading/`)**: Implemented deterministic oracle evaluation harness (`GradingHarness`), output normalizer (`OutputNormalizer`), and multi-mode result verifier (`ResultVerifier`) supporting `NORMALIZED`, `STRICT`, `TOKEN`, and `EPSILON` floating-point tolerance ($\le 10^{-6}$).

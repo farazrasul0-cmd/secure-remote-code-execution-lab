@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import signal
 from typing import Any
 
 from worker.broker.redis_client import redis_broker
@@ -23,6 +24,44 @@ from worker.streaming.multiplexer import StreamMultiplexer
 logger = logging.getLogger("rce_worker.tasks")
 
 
+async def _consume_upstream_inputs(
+    sandbox: Any,
+    redis_client: Any,
+    input_channel: str,
+) -> None:
+    """Subscribe to upstream input channel and forward keystrokes/signals to active sandbox."""
+    pubsub = redis_client.pubsub()
+    await pubsub.subscribe(input_channel)
+    try:
+        while True:
+            msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.2)
+            if msg and msg.get("type") == "message":
+                raw_data = msg.get("data")
+                if raw_data:
+                    try:
+                        frame = json.loads(raw_data)
+                        frame_type = frame.get("type")
+                        if frame_type == "stdin":
+                            sandbox.write_stdin(frame.get("data", ""))
+                        elif frame_type == "resize":
+                            cols = int(frame.get("cols", 80))
+                            rows = int(frame.get("rows", 24))
+                            sandbox.resize_terminal(cols, rows)
+                        elif frame_type == "signal":
+                            sig_name = frame.get("signal", "SIGINT")
+                            sig_val = getattr(signal, sig_name, signal.SIGINT)
+                            sandbox.send_signal(sig_val)
+                    except Exception as err:
+                        logger.debug("Error processing upstream input frame: %s", err)
+            await asyncio.sleep(0.01)
+    except asyncio.CancelledError:
+        pass
+    finally:
+        with contextlib.suppress(Exception):
+            await pubsub.unsubscribe(input_channel)
+            await pubsub.aclose()
+
+
 async def _stream_and_collect(
     submission_id: str,
     request: ExecutionRequest,
@@ -32,6 +71,11 @@ async def _stream_and_collect(
     sandbox = SandboxFactory.create_sandbox(force_process=force_process)
     multiplexer = StreamMultiplexer(submission_id)
     redis_client = redis_broker.get_async_client()
+
+    input_channel = f"rce:input:{submission_id}"
+    input_task = asyncio.create_task(
+        _consume_upstream_inputs(sandbox, redis_client, input_channel)
+    )
 
     stdout_parts = []
     stderr_parts = []
@@ -69,6 +113,9 @@ async def _stream_and_collect(
         final_payload["error_message"] = str(exc)
 
     finally:
+        input_task.cancel()
+        with contextlib.suppress(Exception):
+            await input_task
         await redis_client.aclose()
 
     return {

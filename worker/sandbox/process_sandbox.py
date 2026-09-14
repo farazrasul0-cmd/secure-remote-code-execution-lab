@@ -10,6 +10,7 @@ import tempfile
 import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
+from typing import Any
 
 from worker.sandbox.base import BaseSandbox
 from worker.sandbox.models import (
@@ -25,6 +26,42 @@ from worker.sandbox.stream_consumer import StreamConsumer
 
 class ProcessSandbox(BaseSandbox):
     """Subprocess sandbox executing unprivileged code with watchdog timers and polyglot strategies."""
+
+    def __init__(self) -> None:
+        self.active_process: asyncio.subprocess.Process | None = None
+        self.active_pty: Any = None
+
+    def write_stdin(self, data: str | bytes) -> None:
+        """Inject interactive user input into active process or PTY."""
+        if self.active_pty:
+            self.active_pty.write_input(data)
+            return
+
+        if self.active_process and self.active_process.stdin:
+            data_bytes = data.encode("utf-8") if isinstance(data, str) else data
+            try:
+                self.active_process.stdin.write(data_bytes)
+                asyncio.create_task(self.active_process.stdin.drain())
+            except Exception:
+                pass
+
+    def resize_terminal(self, cols: int, rows: int) -> bool:
+        """Update terminal dimensions and dispatch SIGWINCH if supported."""
+        if self.active_pty:
+            return self.active_pty.set_window_size(cols, rows)
+        return False
+
+    def send_signal(self, sig: int) -> bool:
+        """Deliver an operating system signal (e.g. SIGINT) to the active sandbox process."""
+        if self.active_pty:
+            return self.active_pty.send_signal(sig)
+        if self.active_process:
+            try:
+                self.active_process.send_signal(sig)
+                return True
+            except Exception:
+                return False
+        return False
 
     async def execute(self, request: ExecutionRequest) -> ExecutionResult:
         """Execute request across compilation and runtime phases."""
@@ -274,15 +311,15 @@ class ProcessSandbox(BaseSandbox):
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,
-                stdin=asyncio.subprocess.PIPE if request.stdin_data else None,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+            self.active_process = process
 
             if request.stdin_data and process.stdin:
                 process.stdin.write(request.stdin_data.encode("utf-8"))
                 await process.stdin.drain()
-                process.stdin.close()
 
             async def read_stream(stream, is_stderr: bool):
                 while True:
@@ -362,5 +399,6 @@ class ProcessSandbox(BaseSandbox):
                 data=json.dumps(complete_payload),
             )
         finally:
+            self.active_process = None
             with contextlib.suppress(Exception):
                 temp_dir_obj.cleanup()
