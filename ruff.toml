@@ -31,6 +31,7 @@ runtime-evaluated-base-classes = ["app.db.base.Base"]
 
 [lint.per-file-ignores]
 "backend/app/models/*" = ["TC004"]
+"backend/app/core/rate_limiter.py" = ["TC002"]
 
 [lint.isort]
 known-first-party = ["app"]

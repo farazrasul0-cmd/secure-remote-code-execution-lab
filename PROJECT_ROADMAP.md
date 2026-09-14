@@ -75,11 +75,11 @@
 - [x] Task 5.4: Build custom React WebSocket hook with auto-reconnection and buffering.
 - [x] Task 5.5: Build execution history dashboard with telemetry metrics (runtime, memory, status badges).
 
-### Phase 6: System Hardening, Adversarial Testing & Telemetry
-- [ ] Task 6.1: Execute comprehensive adversarial test suite (fork bombs, OOM, disk filling, network scanning).
-- [ ] Task 6.2: Implement distributed rate limiting on submission endpoints (Token Bucket / Redis).
-- [ ] Task 6.3: Instrument Prometheus metrics (submission latency, worker queue depth, container count).
-- [ ] Task 6.4: Validate 100% containment under noisy-neighbor stress benchmarks.
+### Phase 6: System Hardening, Adversarial Testing & Telemetry (Completed)
+- [x] Task 6.1: Execute comprehensive adversarial test suite (fork bombs, OOM, disk filling, network scanning).
+- [x] Task 6.2: Implement distributed rate limiting on submission endpoints (Token Bucket / Redis).
+- [x] Task 6.3: Instrument Prometheus metrics (submission latency, worker queue depth, container count).
+- [x] Task 6.4: Validate 100% containment under noisy-neighbor stress benchmarks.
 
 ### Phase 7: Production Cloud Deployment, Benchmarking & Portfolio Defense
 - [ ] Task 7.1: Configure production multi-stage Dockerfiles and production Docker Compose / Kubernetes manifests.

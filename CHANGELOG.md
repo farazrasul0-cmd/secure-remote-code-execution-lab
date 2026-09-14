@@ -2,6 +2,15 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [0.8.0] - 2026-09-14
+### Added
+- **Adversarial Exploitation Test Suite (`test_adversarial.py`)**: Authored comprehensive security test suite verifying fork bomb mitigation (`pids_limit=64`), OOM memory exhaustion traps, restricted root filesystem write prevention, network exfiltration containment, and Seccomp-BPF default-deny syscall filters.
+- **Distributed Sliding Window Rate Limiter (`RateLimiter`)**: Engineered Redis Sorted Set (`ZSET`) sliding window rate limiter in `backend/app/core/rate_limiter.py` enforcing per-user submission quotas (`15/min`) with high-availability fail-open resilience and automated `Retry-After` header issuance.
+- **Prometheus Metrics & Telemetry Exporter (`metrics.py`, `endpoints/metrics.py`)**: Instrumented Prometheus telemetry collecting submission counts, wall-clock execution latency histograms, peak RAM histograms, active sandbox gauges, broker queue depths, and rate-limiting rejection counters; exposed at `/metrics` and `/api/v1/metrics`.
+- **Noisy-Neighbor Multi-Tenant Stress Benchmark (`test_noisy_neighbor.py`)**: Built stress test executing simultaneous rogue CPU-hog computations alongside interactive workloads, demonstrating zero starvation and strict CPU quota isolation via cgroups v2 (`cpu.max=50000 100000`).
+- **Shared Async Redis Dependency Module (`backend/app/core/redis.py`)**: Centralized Redis dependency injection to eliminate circular imports between API endpoints and rate limiting middleware.
+- **Expanded Pytest Test Suite**: Grew test coverage from 18 to 29 tests (100% pass rate, 79% codebase coverage).
+
 ## [0.7.0] - 2026-09-12
 ### Added
 - **Interactive Cloud IDE Architecture (`App.tsx`)**: Built modern split-pane workstation layout in React 18 and TypeScript with Tailwind CSS, coordinating the code editor, terminal, telemetry dashboard, and execution drawer.

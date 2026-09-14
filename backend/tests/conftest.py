@@ -7,7 +7,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.api.v1.endpoints.submissions import get_redis_client
+from app.core.redis import get_redis_client
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -32,11 +32,63 @@ TestingSessionLocal = async_sessionmaker(
 )
 
 
+class MockRedisPipeline:
+    """Mock Redis pipeline supporting atomic ZSET operations."""
+
+    def __init__(self, client: "MockTestRedis"):
+        self.client = client
+        self.commands: list[tuple[str, tuple]] = []
+
+    def zremrangebyscore(self, key: str, min_score: float, max_score: float):
+        self.commands.append(("zremrangebyscore", (key, min_score, max_score)))
+        return self
+
+    def zcard(self, key: str):
+        self.commands.append(("zcard", (key,)))
+        return self
+
+    def zadd(self, key: str, mapping: dict[str, float]):
+        self.commands.append(("zadd", (key, mapping)))
+        return self
+
+    def expire(self, key: str, ttl: int):
+        self.commands.append(("expire", (key, ttl)))
+        return self
+
+    async def execute(self) -> list:
+        results = []
+        for cmd, args in self.commands:
+            if cmd == "zremrangebyscore":
+                key, min_s, max_s = args
+                zset = self.client.zsets.setdefault(key, {})
+                to_remove = [m for m, s in zset.items() if min_s <= s <= max_s]
+                for m in to_remove:
+                    del zset[m]
+                results.append(len(to_remove))
+            elif cmd == "zcard":
+                (key,) = args
+                results.append(len(self.client.zsets.get(key, {})))
+            elif cmd == "zadd":
+                key, mapping = args
+                zset = self.client.zsets.setdefault(key, {})
+                for m, s in mapping.items():
+                    zset[m] = s
+                results.append(len(mapping))
+            elif cmd == "expire":
+                results.append(True)
+        self.commands.clear()
+        return results
+
+
 class MockTestRedis:
-    """Mock Redis client for submission testing."""
+    """Mock Redis client for submission and rate limiter testing."""
 
     def __init__(self):
-        self.lists = {}
+        self.lists: dict[str, list[str]] = {}
+        self.zsets: dict[str, dict[str, float]] = {}
+
+    def pipeline(self, transaction: bool = True) -> MockRedisPipeline:
+        return MockRedisPipeline(self)
 
     async def lpush(self, key: str, value: str) -> int:
         if key not in self.lists:

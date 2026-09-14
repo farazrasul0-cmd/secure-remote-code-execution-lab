@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.v1.endpoints.metrics import router as metrics_router
 from app.api.v1.endpoints.websocket import router as ws_router
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -58,6 +59,9 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Register WebSocket Streaming Router
 app.include_router(ws_router, prefix="/ws/v1", tags=["WebSockets"])
+
+# Register Metrics Scrape Endpoint
+app.include_router(metrics_router, prefix="/metrics", tags=["Telemetry"])
 
 
 @app.get("/", tags=["Root"])

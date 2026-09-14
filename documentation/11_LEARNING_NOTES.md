@@ -235,6 +235,53 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** Configured in [`frontend/src/components/TerminalView.tsx`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/frontend/src/components/TerminalView.tsx).
 - **Real-World Examples:** Linux kernel `dmesg` circular ring buffer, log rotation daemons (`logrotate`), production server monitoring consoles.
 
+---
+
+## 10. System Hardening, Adversarial Testing & Observability
+
+### 10.1 Adversarial Sandbox Testing: Fork Bombs, OOM Killers & Seccomp-BPF Whitelisting
+- **Concept Learned:** Defensive kernel-level isolation against denial-of-service, exhaustion attacks, and privilege escalation.
+- **Simple Explanation:** When running arbitrary user code, adversaries attempt attacks such as:
+  1. *Process Table Exhaustion (Fork Bomb)*: An exponential process creation loop (`while True: os.fork()`) attempts to starve the host OS process table (`PID_MAX`), causing system panic. Linux cgroups `pids.max` strictly limits the container to 64 PIDs, returning `EAGAIN` (Resource temporarily unavailable) to rogue processes.
+  2. *Memory Over-allocation (OOM Killer)*: Attempting to allocate unbounded memory (`bytearray(10**9)`). Linux cgroups `memory.max` constrains the container to 128MB. If exceeded, the Linux Out-Of-Memory (OOM) killer immediately terminates the process with `SIGKILL` (Exit 137).
+  3. *Root Filesystem Mutation*: Writing to system directories (`/etc`, `/bin`, `/usr`) to install malware or compromise subsequent runs. Mounting the root filesystem `read_only: true` with a bounded volatile `tmpfs` at `/tmp` guarantees strict container immutability.
+  4. *Network Ingress/Egress Tampering*: Attempting to connect to command-and-control servers, crypto miners, or local cloud metadata services (`169.254.169.254`). Setting `network_mode: "none"` disables the container's network stack entirely, preventing all TCP/UDP socket creation.
+  5. *Kernel System Call Filtering (Seccomp-BPF)*: Unrestricted system calls expose the host kernel to zero-day vulnerabilities (e.g., `ptrace`, `bpf`, `mount`, `reboot`). A default-deny BPF filter (`SCMP_ACT_ERRNO`) blocks dangerous syscalls at the hardware/kernel boundary before code execution.
+- **Why It Matters:** In a multi-tenant compute laboratory, user code cannot be trusted. Application-layer filters (e.g. checking code with regex) are easily bypassed by obfuscation (`__import__('o' + 's')`). True isolation must be enforced by the Linux kernel hardware boundary.
+- **Where It Is Used in This Project:** Enforced in [`worker/app/core/sandbox.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/app/core/sandbox.py), configured in [`docker/python/seccomp-profile.json`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/docker/python/seccomp-profile.json), and verified in [`backend/tests/test_adversarial.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/tests/test_adversarial.py).
+- **Real-World Examples:** Google Cloud Run sandbox (gVisor), AWS Lambda Firecracker microVMs, Judge0, LeetCode submission engines.
+
+### 10.2 Distributed Rate Limiting: Sliding Window Log vs. Fixed Window in Redis
+- **Concept Learned:** Distributed sliding-window algorithm using Redis Sorted Sets (`ZSET`), atomic pipelining, and HTTP 429 throttling.
+- **Simple Explanation:** Standard fixed-window counters (e.g., reset counter every 60 seconds) suffer from the *boundary burst problem*: a user can send 15 requests at 00:59 and another 15 requests at 01:01, resulting in 30 requests within 2 seconds without violating the 15 req/min limit. The Sliding Window Log algorithm stores each request timestamp as an element and score in a Redis Sorted Set (`ZSET`). For each incoming request:
+  1. Remove expired timestamps older than `now - window_seconds` via `ZREMRANGEBYSCORE`.
+  2. Count surviving timestamps via `ZCARD`.
+  3. If count $\ge$ limit, calculate `retry_after` based on the oldest record and reject with HTTP 429.
+  4. Otherwise, add the current timestamp via `ZADD`, set key expiration via `EXPIRE`, and permit the request.
+- **Why It Matters:** All four operations execute inside an atomic Redis pipeline (`client.pipeline()`), eliminating race conditions across multiple load-balanced API gateway replicas without requiring distributed locks.
+- **Where It Is Used in This Project:** Built in [`backend/app/core/rate_limiter.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/core/rate_limiter.py) and applied to `POST /api/v1/submissions` in [`backend/app/api/v1/endpoints/submissions.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/submissions.py).
+- **Real-World Examples:** Stripe API rate limiting, Cloudflare DDoS protection, GitHub REST API rate headers (`X-RateLimit-*`, `Retry-After`).
+
+### 10.3 Systems Observability: Prometheus Instrumentation & The Four Golden Signals
+- **Concept Learned:** Metric types (Counters, Gauges, Histograms), Prometheus exposition format, and site reliability telemetry.
+- **Simple Explanation:** Effective production operations require visibility into the Google SRE "Four Golden Signals": Latency, Traffic, Errors, and Saturation. We instrumented:
+  - *Counter (`rce_submissions_total`)*: Monotonically increasing count tracking total submissions segmented by language (`python`) and status (`COMPLETED`, `FAILED`, `TIMEOUT`, `OOM_KILLED`).
+  - *Histogram (`rce_execution_duration_seconds`)*: Bucketed distribution ($0.1s$ to $30.0s$) measuring sandbox runtime latency to compute $p50, p90, p99$ percentiles.
+  - *Histogram (`rce_peak_memory_bytes`)*: Peak memory consumption across sandboxes to detect container memory bloat.
+  - *Gauge (`rce_active_sandboxes`, `rce_queue_depth`)*: Real-time gauges indicating saturation and concurrency bottlenecks.
+  - *Counter (`rce_rate_limit_hits_total`)*: Tracking throttling rejections per endpoint.
+- **Why It Matters:** Metrics allow automated alerting (e.g. queue depth spiking, high error ratios) and horizontal autoscaling (HPA) of worker nodes before latency degrades user experience.
+- **Where It Is Used in This Project:** Implemented in [`backend/app/core/metrics.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/core/metrics.py), exposed via [`backend/app/api/v1/endpoints/metrics.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/metrics.py), and verified in [`backend/tests/test_metrics.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/tests/test_metrics.py).
+- **Real-World Examples:** Prometheus & Grafana cloud monitoring, Datadog APM, AWS CloudWatch Metrics.
+
+### 10.4 Multi-Tenant Fair Scheduling: Noisy-Neighbor Mitigation with Linux Cgroups v2
+- **Concept Learned:** CFS (Completely Fair Scheduler) bandwidth control, CPU quotas (`cpu.cfs_quota_us`), and multi-tenant resource isolation.
+- **Simple Explanation:** In a multi-tenant cloud environment, a "noisy neighbor" is a workload that monopolizes shared hardware resources (e.g., spinning on a tight loop `while True: pass`), starving neighboring concurrent workloads of CPU cycles. Linux cgroups enforce CFS bandwidth limits: by allocating `nano_cpus = 500,000,000` ($0.5$ CPU core), the kernel restricts the container's execution time to $50ms$ per $100ms$ scheduler period.
+- **Why It Matters:** Even if a malicious or poorly written script consumes $100\%$ of its allocated CPU slice, the host Linux kernel CFS strictly deschedules it when its quota expires, guaranteeing predictable execution time and zero starvation for concurrent user submissions.
+- **Where It Is Used in This Project:** Configured in [`worker/app/core/sandbox.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/app/core/sandbox.py) and benchmarked in [`backend/tests/test_noisy_neighbor.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/tests/test_noisy_neighbor.py).
+- **Real-World Examples:** Kubernetes pod CPU limits (`resources.limits.cpu`), AWS ECS task definitions, multi-tenant databases (Amazon Aurora Serverless).
+
+
 
 
 
