@@ -2,6 +2,13 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [1.5.0] - 2026-09-15
+### Added
+- **Micro-VM Hardware Virtualization Driver (`worker/sandbox/microvm_sandbox.py`)**: Implemented `MicroVMSandbox` supporting hardware-assisted fault boundaries, guest memory envelope isolation, POSIX signal propagation, and watchdog timeout supervisors inspired by AWS Firecracker and Linux KVM (`/dev/kvm`).
+- **Pluggable Sandbox Driver Hierarchy & Capability Factory (`worker/sandbox/factory.py`, `models.py`)**: Formalized `SandboxDriverType` enum (`PROCESS`, `DOCKER`, `MICROVM`, `AUTO`) and upgraded `SandboxFactory` with capability discovery; dynamically checks host `/dev/kvm` and Docker daemon availability to automatically deploy the highest security driver supported by the underlying hardware.
+- **Automated Sandbox Benchmarking Harness (`worker/sandbox/benchmark/harness.py`)**: Created empirical benchmark suite quantitatively measuring cold startup initialization latency (ms), execution throughput, and estimated memory overhead across all available isolation drivers.
+- **Sandbox Drivers Test Suite (`backend/tests/test_sandbox_drivers.py`)**: Authored 14 unit and integration tests verifying driver instantiation, fallback negotiation, output streaming, timeout termination, KVM probe detection, and comparative benchmark execution (expanding test suite to 75/75 passing tests).
+
 ## [1.4.0] - 2026-09-14
 ### Added
 - **Enterprise Helm Chart (`helm/rce-platform/`)**: Packaged the complete platform into a production-grade Helm chart with 17 parameterized templates, centralized `values.yaml` configuration, and Go template helpers for consistent labeling and security context injection.

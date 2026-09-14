@@ -463,6 +463,36 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** Full chart in [`helm/rce-platform/`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform) with 17 templates and `values.yaml`.
 - **Real-World Examples:** CNCF Artifact Hub, Bitnami charts, Datadog Helm chart.
 
+---
+
+## 16. Micro-VM Architecture, Hardware-Assisted Virtualization & Pluggable Sandboxing
+
+### 16.1 Containers vs. Micro-VMs: Threat Boundaries & Kernel Sharing
+- **Concept Learned:** Decoupling guest execution from the host kernel attack surface via hardware privilege rings.
+- **Simple Explanation:** Containers are not virtual machines; they are ordinary processes restricted by kernel namespaces and cgroups. Every container syscall traps directly into the single host kernel. A Micro-VM, by contrast, boots a dedicated, minimalist guest Linux kernel inside a hardware-isolated memory envelope managed by a hypervisor (e.g. Linux KVM). If an attacker achieves a kernel 0-day exploit inside a Micro-VM, only the isolated guest kernel panics; the host physical machine and neighboring tenants remain unaffected.
+- **Why It Matters:** Multi-tenant code execution platforms running untrusted, arbitrary code cannot rely solely on software namespace boundaries for mission-critical isolation.
+- **Where It Is Used in This Project:** Built in [`worker/sandbox/microvm_sandbox.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/microvm_sandbox.py) and selected via [`worker/sandbox/factory.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/factory.py).
+- **Real-World Examples:** AWS Lambda (Firecracker), Fly.io, Cloudflare Workers, GitHub Codespaces.
+
+### 16.2 Hardware-Assisted Virtualization (Intel VT-x, AMD-V & KVM)
+- **Concept Learned:** Processor virtualization extensions (VMX Root vs. VMX Non-Root operation).
+- **Simple Explanation:** Hardware CPU extensions introduce dual operation modes. The hypervisor runs in VMX Root mode, while guest code executes natively on the physical CPU in VMX Non-Root mode at near-bare-metal speed. Privileged operations executed by the guest trigger a hardware **VM-Exit**, returning control safely to the hypervisor. Linux KVM (`/dev/kvm`) provides the standard kernel interface for user-space Virtual Machine Monitors (VMMs) to configure memory and drive vCPU execution loops.
+- **Why It Matters:** Eliminates slow software emulation (e.g., QEMU TCG binary translation) while providing true hardware-enforced memory encryption and isolation.
+- **Where It Is Used in This Project:** Probed and detected dynamically by `MicroVMCapabilities.is_kvm_available()` in [`worker/sandbox/microvm_sandbox.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/microvm_sandbox.py).
+- **Real-World Examples:** Linux KVM, AWS Firecracker, Google Cloud Compute Engine hypervisors.
+
+### 16.3 Pluggable Sandbox Driver Hierarchy & Capability Negotiation
+- **Concept Learned:** Dynamic runtime abstraction decoupling task execution from underlying containment technology.
+- **Simple Explanation:** The platform defines a unified `BaseSandbox` interface implemented by three distinct drivers:
+  1. **`ProcessSandbox`:** Lightweight local subprocess runner for development and constrained CI environments.
+  2. **`DockerSandbox`:** Containerized runner enforcing cgroups v2, Seccomp-BPF filters, and read-only root filesystems.
+  3. **`MicroVMSandbox`:** Hardware-virtualized execution runner with guest memory envelope isolation.
+  The `SandboxFactory` dynamically inspects host platform capabilities (`/dev/kvm`, Docker daemon socket) to negotiate the highest-security driver available.
+- **Why It Matters:** Enables the same platform codebase to run seamlessly on developer laptops (Windows/macOS), standard cloud Kubernetes clusters, and specialized bare-metal KVM instances without manual re-architecting.
+- **Where It Is Used in This Project:** Implemented in [`worker/sandbox/factory.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/factory.py) and benchmarked in [`worker/sandbox/benchmark/harness.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/benchmark/harness.py).
+- **Real-World Examples:** Kubernetes Container Runtime Interface (CRI) supporting containerd, CRI-O, Kata Containers, and gVisor runsc.
+
+
 
 
 
