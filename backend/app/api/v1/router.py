@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     languages,
     metrics,
     problems,
+    rooms,
     submissions,
 )
 
@@ -20,6 +21,7 @@ api_router.include_router(languages.router, prefix="/languages", tags=["Language
 api_router.include_router(
     problems.router, prefix="/problems", tags=["Problems & Autograding"]
 )
+api_router.include_router(rooms.router, prefix="/rooms", tags=["Collaborative Rooms"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(
     submissions.router, prefix="/submissions", tags=["Submissions"]
