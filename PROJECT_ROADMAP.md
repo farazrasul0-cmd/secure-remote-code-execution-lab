@@ -93,4 +93,10 @@
 - [x] Task 8.3: Bidirectional Interactive Pseudo-Terminal (PTY, termios, signal multiplexing, interactive REPL).
 - [x] Task 8.4: Cloud-Native Kubernetes Orchestration & HPA (Helm charts, PodSecurityStandards, Prometheus queue-depth autoscaling).
 
+### Phase 9: Enterprise Resilience, Observability & Micro-VM Sandboxing (In Progress)
+- [x] Task 9.1: Next-Generation Pluggable Sandbox Drivers & Virtualization Architectures (Process, Docker, MicroVMSandbox with KVM capability negotiation and benchmark harness).
+- [ ] Task 9.2: Distributed Observability & OpenTelemetry Instrumentation (W3C TraceContext propagation across Redis queues and Jaeger exports).
+- [ ] Task 9.3: Real-Time Multi-User Collaborative Laboratory Rooms (WebSocket Yjs CRDT room synchronization and Monaco paired programming).
+- [ ] Task 9.4: Chaos Engineering & Fault-Tolerant Resilience Harness (Automated broker partition, stream buffer recovery, and crash resilience verification).
+
 

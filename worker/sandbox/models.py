@@ -20,6 +20,15 @@ class ExecutionStatus(StrEnum):
     SYSTEM_ERROR = "SYSTEM_ERROR"
 
 
+class SandboxDriverType(StrEnum):
+    """Supported sandbox virtualization and containment driver types."""
+
+    PROCESS = "process"
+    DOCKER = "docker"
+    MICROVM = "microvm"
+    AUTO = "auto"
+
+
 class StreamEventType(StrEnum):
     """Stream event types for real-time WebSocket communication."""
 
