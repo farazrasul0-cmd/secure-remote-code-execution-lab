@@ -32,8 +32,13 @@ async def create_submission(
     await db.commit()
     await db.refresh(submission)
 
-    # Dispatch to Redis task queue
+    # Dispatch to Redis task queue with W3C TraceContext propagation
     if redis_client:
+        from app.core.telemetry import TraceContextManager
+
+        headers: dict[str, str] = {}
+        TraceContextManager.inject_context(headers)
+
         task_payload = {
             "submission_id": str(submission.id),
             "user_id": str(user_id),
@@ -45,6 +50,7 @@ async def create_submission(
             "cpu_quota": settings.SANDBOX_CPU_QUOTA,
             "max_pids": settings.SANDBOX_MAX_PIDS,
             "max_output_bytes": settings.SANDBOX_MAX_OUTPUT_BYTES,
+            "trace_context": headers,
         }
         await redis_client.lpush("rce:submissions", json.dumps(task_payload))
 

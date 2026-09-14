@@ -305,6 +305,35 @@ Previous platform iterations relied primarily on Docker container sandboxing wit
 ### Defense Formulation
 > *"We transitioned our execution tier from a monolithic container runner to a pluggable driver architecture supporting native subprocesses, OCI containers, and hardware-virtualized Micro-VMs. By implementing dynamic capability negotiation, the platform automatically detects `/dev/kvm` to engage hardware-assisted guest memory envelopes with hypervisor-enforced fault boundaries, while falling back gracefully to hardened Docker cgroups v2 or local process sandboxes. Our benchmarking harness empirically verifies that micro-VM isolation provides hardware-level tenant isolation with single-digit millisecond startup overhead."*
 
+---
+
+## Decision 12: Distributed Observability & W3C TraceContext Propagation
+
+### Context
+In an asynchronous, distributed execution pipeline, user requests do not execute in a single synchronous call stack:
+1. **Asynchronous Blind Spots:** FastAPI ingests code, writes to PostgreSQL, and pushes to a Redis queue. Sometime later, an independent Celery worker daemon dequeues the task and runs it. Standard APM profilers lose context across message brokers.
+2. **End-to-End Latency Diagnosis:** When execution requests experience latency, operators need to know whether the delay occurred in the HTTP gateway, Redis queue waiting time, compilation, container startup, or output streaming.
+3. **Vendor-Neutral Open Standards:** Telemetry instrumentation must not tie the codebase to a specific proprietary APM vendor.
+
+### Decision
+1. **OpenTelemetry Core Architecture:** Instrument the platform with the standard OpenTelemetry Python SDK and API, configured via [`backend/app/core/telemetry.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/core/telemetry.py).
+2. **W3C TraceContext Serialization:** Use the standard W3C `traceparent` specification (`00-{trace_id}-{span_id}-{flags}`) to propagate execution context through the Redis task queue payload (`trace_context` dictionary).
+3. **FastAPI & Worker Span Linking:** FastAPI starts the root trace span (`POST /api/v1/submissions`); the Celery worker extracts the `traceparent` from task kwargs and initializes a child span `rce.worker.sandbox_execution`, ensuring the entire lifecycle belongs to the same 128-bit `trace_id`.
+4. **Semantic Attributes:** Tag execution spans with `rce.submission_id`, `rce.language`, `rce.status`, and `rce.exit_code` for structured filtering and error alerting.
+
+### Alternatives Evaluated
+* *Ad-hoc Correlation IDs (Logging only):* Emitting `submission_id` in log lines requires manual grep or expensive log aggregators (ELK/Loki) and does not provide microsecond-accurate waterfall latency graphs.
+* *Synchronous RPC / HTTP Workers:* Avoids queue context loss, but destroys horizontal scalability and buffer resilience under bursty submission loads.
+* *Vendor-Specific Agents (Datadog/NewRelic):* Incurs proprietary agent lock-in and paid SaaS dependencies unsuitable for an open-source academic Master's platform.
+
+### Trade-offs
+* *Con:* Adds OpenTelemetry library dependencies and minor serialization overhead per queued submission.
+* *Pro:* Full distributed tracing DAGs across queue boundaries; vendor neutrality (exportable to Jaeger, Zipkin, or OTel Collector); and microsecond-level visibility into asynchronous queue and execution latencies.
+
+### Defense Formulation
+> *"We eliminated asynchronous observability blind spots across our decoupled architecture by implementing the W3C TraceContext specification via the OpenTelemetry SDK. By serializing standard `traceparent` headers into Celery task payloads and re-linking them inside worker execution coroutines, our platform preserves end-to-end causal provenance across the Redis message broker. This provides microsecond-accurate waterfall spans spanning HTTP ingestion, queue latency, sandbox initialization, and real-time streaming without sacrificing decoupled asynchronous queuing."*
+
+
 
 
 
