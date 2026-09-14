@@ -515,7 +515,32 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Simple Explanation:** Attaching standardized attributes (`rce.submission_id`, `rce.language`, `rce.status`, `rce.exit_code`) to execution spans enables high-cardinality filtering in APM dashboards (e.g. comparing C++ compilation latency vs. Python runtime latency under high queue load).
 - **Why It Matters:** Eliminates ad-hoc string logging in favor of structured, queryable distributed span trees.
 - **Where It Is Used in This Project:** Tagged inside `_stream_and_collect` in [`worker/tasks/execution.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/tasks/execution.py).
-- **Real-World Examples:** OpenTelemetry Semantic Conventions for HTTP, RPC, and Messaging Systems.
+---
+
+## 18. Real-Time Multi-User Collaborative Rooms & Conflict Resolution
+
+### 18.1 Conflict-Free Replicated Data Types (CRDTs) vs. Operational Transformation (OT)
+- **Concept Learned:** Mathematical properties ensuring Strong Eventual Consistency (SEC) across distributed clients without a central coordinator lock.
+- **Simple Explanation:** Operational Transformation (Google Docs style) rewrites character indices using a centralized serialization server. If packets arrive out of order, document state drifts. CRDTs (like Yjs and Automerge) assign immutable logical timestamps (Lamport clocks) and replica IDs to every character. Operations are commutative ($A \cdot B = B \cdot A$) and idempotent ($A \cdot A = A$). Regardless of the order of network packet arrival, every connected client deterministically converges to 100% identical code.
+- **Why It Matters:** Enables latency-free, offline-tolerant collaborative coding and pair programming for academic laboratory sessions without race conditions.
+- **Where It Is Used in This Project:** Multiplexed over the `/ws/v1/rooms/{room_id}` WebSocket channel in [`backend/app/api/v1/endpoints/websocket.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/websocket.py).
+- **Real-World Examples:** Figma, Apple Notes, Visual Studio Live Share, Overleaf v2.
+
+### 18.2 Dual-Channel Multiplexing: Sync vs. Execution Broadcast
+- **Concept Learned:** Decoupling high-frequency interactive document state from heavyweight compute event distribution.
+- **Simple Explanation:** A collaborative coding room requires two independent data pipelines:
+  1. `rce:room:sync:<id>`: Transports document deltas, keystrokes, and cursor movements.
+  2. `rce:room:exec:<id>`: Broadcasts worker execution streams (stdout/stderr chunks) so that when either student clicks "Run", both participants see the real-time terminal output simultaneously.
+- **Why It Matters:** Prevents desynchronized classroom states where one student executes code and sees output, but their partner or instructor's screen remains blank.
+- **Where It Is Used in This Project:** Designed in [`backend/app/api/v1/endpoints/websocket.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/websocket.py) with dual Redis Pub/Sub channels.
+- **Real-World Examples:** Replit Multiplayer, Google Cloud Shell multi-user mode.
+
+### 18.3 Ephemeral Presence vs. Durable State Snapshots
+- **Concept Learned:** Separating high-velocity transient awareness data from persistent relational database transactions.
+- **Simple Explanation:** Cursors, selections, and user typing indicators change 60 times per second. Persisting these in PostgreSQL would cause database I/O thrashing. Instead, ephemeral awareness is broadcast purely over Redis Pub/Sub and WebSocket frames with heartbeat timeouts, while durable source code snapshots are persisted to PostgreSQL on explicit save/run events.
+- **Why It Matters:** Protects transactional database engines from unbounded write amplification during active collaborative editing sessions.
+- **Where It Is Used in This Project:** Preserved in [`backend/app/models/room.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/models/room.py) and [`backend/app/services/room_service.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/services/room_service.py).
+- **Real-World Examples:** Liveblocks presence API, Supabase Realtime Presence.
 
 
 
