@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     SANDBOX_MAX_PIDS: int = 64
     SANDBOX_MAX_OUTPUT_BYTES: int = 1048576  # 1 MB maximum output cap
 
+    # Rate Limiting (Token Bucket / Sliding Window)
+    RATE_LIMIT_SUBMISSIONS_PER_MINUTE: int = 15
+    RATE_LIMIT_LOGIN_PER_MINUTE: int = 10
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

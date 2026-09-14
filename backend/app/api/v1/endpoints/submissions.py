@@ -10,6 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_active_user
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.metrics import SUBMISSIONS_TOTAL
+from app.core.rate_limiter import RateLimiter
+from app.core.redis import get_redis_client
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.submission import (
@@ -22,20 +25,20 @@ from app.services import submission_service
 router = APIRouter()
 
 
-async def get_redis_client():
-    """Dependency for ephemeral Redis client."""
-    client = Redis.from_url(settings.REDIS_URL, decode_responses=True)
-    try:
-        yield client
-    finally:
-        await client.aclose()
-
-
 @router.post(
     "",
     response_model=SubmissionResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Submit code for sandboxed execution",
+    dependencies=[
+        Depends(
+            RateLimiter(
+                max_requests=settings.RATE_LIMIT_SUBMISSIONS_PER_MINUTE,
+                window_seconds=60,
+                scope="submissions",
+            )
+        )
+    ],
 )
 async def submit_code(
     sub_in: SubmissionCreate,
@@ -58,6 +61,9 @@ async def submit_code(
             sub_in=sub_in,
             redis_client=redis_client,
         )
+        SUBMISSIONS_TOTAL.labels(
+            language=sub_in.language.lower(), status="PENDING"
+        ).inc()
         logger.info(
             "Enqueued submission %s for user %s", submission.id, current_user.id
         )
