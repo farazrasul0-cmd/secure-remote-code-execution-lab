@@ -2,6 +2,18 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [1.4.0] - 2026-09-14
+### Added
+- **Enterprise Helm Chart (`helm/rce-platform/`)**: Packaged the complete platform into a production-grade Helm chart with 17 parameterized templates, centralized `values.yaml` configuration, and Go template helpers for consistent labeling and security context injection.
+- **PodSecurityStandards Restricted Enforcement (`namespace.yaml`)**: Configured namespace-level admission with `pod-security.kubernetes.io/enforce: restricted`, enforcing non-root UIDs (`10001`), dropped ALL capabilities, read-only root filesystems, and Seccomp `RuntimeDefault` profiles across all workloads.
+- **Zero-Trust NetworkPolicy Suite (`networkpolicies.yaml`)**: Implemented default-deny-all ingress and egress baseline with microsegmented label-selector whitelists: frontend accepts only Ingress Controller traffic; backend connects to PostgreSQL and Redis; workers connect only to Redis; databases accept only authorized pods.
+- **Queue-Depth HPA Autoscaling (`hpa-worker.yaml`)**: Configured HPA v2 scaling Celery worker replicas on custom Prometheus metric `rce_worker_queue_depth` (Little's Law: target 5 submissions per worker) with aggressive scale-up (0s stabilization) and conservative scale-down (300s window).
+- **Backend CPU/Memory HPA (`hpa-backend.yaml`)**: Configured HPA v2 scaling API gateway replicas on CPU (70%) and memory (80%) utilization with stabilization policies.
+- **PostgreSQL 16 StatefulSet (`statefulset-postgres.yaml`)**: Deployed PostgreSQL with 10Gi PersistentVolumeClaim, headless service for DNS, `pg_isready` health probes, and secret-backed password injection.
+- **Redis 7 StatefulSet (`statefulset-redis.yaml`)**: Deployed Redis with AOF persistence (`--appendonly yes`), 2Gi PVC, read-only root filesystem, and `redis-cli ping` health probes.
+- **Ingress with WebSocket Support (`ingress.yaml`)**: Configured path-based routing (`/api` and `/ws` to backend, `/` to frontend) with 3600s proxy read/send timeout annotations for long-running interactive terminal sessions.
+- **Kubernetes Manifest Validation Test Suite (`test_kubernetes_manifests.py`)**: Authored 14 unit tests verifying chart structure, PSS compliance, NetworkPolicy rules, HPA metrics, StatefulSet storage, and Ingress routing (expanding test suite to 61/61 passing tests).
+
 ## [1.3.0] - 2026-09-14
 ### Added
 - **Bidirectional Interactive Pseudo-Terminal (PTY) (`worker/sandbox/pty_session.py`)**: Implemented low-level POSIX PTY allocation using `pty.openpty()`, non-blocking I/O (`os.O_NONBLOCK`), newline line discipline translation (`termios.ONLCR`), cross-platform non-POSIX fallback, and dynamic terminal window sizing via `TIOCSWINSZ` ioctl.

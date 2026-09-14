@@ -1,0 +1,147 @@
+# =============================================================================
+# Secure Real-Time Remote Code Execution Lab — Helm Values
+# =============================================================================
+# Override these values for staging/production via:
+#   helm install rce-lab ./helm/rce-platform -f values-prod.yaml
+#   helm install rce-lab ./helm/rce-platform --set worker.replicaCount=10
+# =============================================================================
+
+# -- Global Settings ----------------------------------------------------------
+global:
+  namespace: rce-lab
+  imagePullPolicy: IfNotPresent
+
+# -- Frontend (React + Vite + Nginx) -----------------------------------------
+frontend:
+  replicaCount: 2
+  image:
+    repository: rce-lab/frontend
+    tag: "1.3.0"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  service:
+    port: 80
+  healthCheck:
+    path: /
+    port: 80
+
+# -- Backend API (FastAPI + Uvicorn) ------------------------------------------
+backend:
+  replicaCount: 2
+  image:
+    repository: rce-lab/backend
+    tag: "1.3.0"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    port: 8000
+  healthCheck:
+    path: /health
+    port: 8000
+  env:
+    DATABASE_URL: "postgresql+asyncpg://rce_user:changeme@postgres:5432/rce_lab"
+    REDIS_URL: "redis://redis:6379/0"
+    JWT_SECRET_KEY: "change-me-in-production-use-a-32-byte-random-secret"
+    JWT_ALGORITHM: "HS256"
+    JWT_EXPIRATION_MINUTES: "60"
+
+# -- Worker (Celery Execution Workers) ----------------------------------------
+worker:
+  replicaCount: 3
+  image:
+    repository: rce-lab/worker
+    tag: "1.3.0"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  env:
+    REDIS_URL: "redis://redis:6379/0"
+    WORKER_CONCURRENCY: "4"
+    EXECUTION_TIMEOUT_SECONDS: "10"
+    MEMORY_LIMIT_MB: "128"
+
+# -- PostgreSQL 16 (StatefulSet) ----------------------------------------------
+postgres:
+  image:
+    repository: postgres
+    tag: "16-alpine"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 10Gi
+    storageClassName: ""
+  env:
+    POSTGRES_DB: rce_lab
+    POSTGRES_USER: rce_user
+    POSTGRES_PASSWORD: changeme
+  service:
+    port: 5432
+
+# -- Redis 7 (StatefulSet) ---------------------------------------------------
+redis:
+  image:
+    repository: redis
+    tag: "7-alpine"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  storage:
+    size: 2Gi
+    storageClassName: ""
+  service:
+    port: 6379
+
+# -- Ingress ------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  host: rce-lab.local
+  tls:
+    enabled: false
+    secretName: rce-lab-tls
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+
+# -- Horizontal Pod Autoscaler ------------------------------------------------
+autoscaling:
+  backend:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  worker:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 20
+    # Custom metric: scale on Redis queue depth (submissions pending per worker)
+    targetQueueDepthPerWorker: 5
+
+# -- Network Policies --------------------------------------------------------
+networkPolicies:
+  enabled: true

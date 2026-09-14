@@ -1,0 +1,19 @@
+apiVersion: v2
+name: rce-platform
+description: >-
+  Secure Real-Time Remote Code Execution Laboratory Platform.
+  Enterprise Helm chart packaging the full-stack RCE Lab including
+  FastAPI backend, React frontend, Celery execution workers,
+  PostgreSQL, and Redis with zero-trust NetworkPolicies,
+  PodSecurityStandards (Restricted), and queue-depth HPA autoscaling.
+type: application
+version: 1.4.0
+appVersion: "1.3.0"
+keywords:
+  - remote-code-execution
+  - kubernetes
+  - helm
+  - autograding
+  - interactive-terminal
+maintainers:
+  - name: Syed Faraz Zain
