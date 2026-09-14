@@ -2,6 +2,15 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [1.0.0] - 2026-09-14
+### Added
+- **Production Multi-Stage Containerization (`frontend/Dockerfile`, `backend/Dockerfile`, `worker/Dockerfile`)**: Implemented multi-stage Docker builds reducing image sizes by >85% (purging compilation toolchains, npm devDependencies, and pip caches); enforced non-root execution (`UID 10001:GID 10001`) and integrated container `HEALTHCHECK` probes on all services.
+- **Production Docker Compose Orchestration (`deployment/docker-compose.prod.yml`)**: Designed production deployment manifest featuring dual-network segregation (`rce_public_network` for Nginx ingress, `rce_internal_network` for private microservices), `no-new-privileges: true`, resource limits (CPU quotas, RAM ceilings), and persistent volume mappings for PostgreSQL 16 and Redis 7 (AOF enabled).
+- **High-Performance Ingress Reverse Proxy (`deployment/nginx.conf`, `frontend/nginx.conf`)**: Configured Nginx with gzip asset compression, upstream keep-alive pooling, WebSocket upgrade headers, and OWASP security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`).
+- **Distributed Load Testing Suite (`benchmarks/load_test_k6.js`)**: Developed k6 performance test ramping from 1 to 25 virtual users simulating realistic student code submissions, measuring latency percentiles ($p50, p95, p99$) and validating Redis sliding window rate limiting.
+- **Automated Systems Benchmarking Engine (`benchmarks/benchmark_engine.py`)**: Built automated empirical evaluation harness measuring bare-metal vs. sandbox virtualization overhead (RQ1), Little's Law queueing throughput (RQ2), and 100% adversarial threat containment (RQ3); generated `benchmark_report.json` and `benchmark_report.md`.
+- **Academic Research & Systems Defense Documentation (`documentation/22_RESEARCH_VALUE.md`, `documentation/21_ARCHITECTURE_DECISIONS.md`, `documentation/18_DEPLOYMENT_ARCHITECTURE.md`, `documentation/04_TECHNOLOGY_STACK.md`)**: Synthesized comprehensive research findings answering three formal Research Questions with empirical data tables, architectural trade-off defenses, and Master's thesis interview talking points.
+
 ## [0.8.0] - 2026-09-14
 ### Added
 - **Adversarial Exploitation Test Suite (`test_adversarial.py`)**: Authored comprehensive security test suite verifying fork bomb mitigation (`pids_limit=64`), OOM memory exhaustion traps, restricted root filesystem write prevention, network exfiltration containment, and Seccomp-BPF default-deny syscall filters.
