@@ -9,10 +9,11 @@ import { SubmissionHistory } from './components/SubmissionHistory';
 import { AuthModal } from './components/AuthModal';
 import { useExecutionStream } from './hooks/useExecutionStream';
 import { api } from './services/api';
-import { Submission } from './types';
+import { Submission, SupportedLanguage } from './types';
 
 const MainWorkspace: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>('python');
   const [code, setCode] = useState<string>(DEFAULT_PYTHON_CODE);
   const [stdinData, setStdinData] = useState<string>('');
   const [isStdinOpen, setIsStdinOpen] = useState<boolean>(false);
@@ -38,7 +39,7 @@ const MainWorkspace: React.FC = () => {
 
     try {
       const submission = await api.createSubmission({
-        language: 'python',
+        language: selectedLanguage,
         source_code: code,
         stdin_data: stdinData.trim() ? stdinData : null,
       });
@@ -52,6 +53,9 @@ const MainWorkspace: React.FC = () => {
 
   const handleSelectHistoricalSubmission = (submission: Submission) => {
     setCode(submission.source_code);
+    if (submission.language && ['python', 'c', 'cpp', 'rust', 'go', 'javascript'].includes(submission.language)) {
+      setSelectedLanguage(submission.language as SupportedLanguage);
+    }
     if (submission.stdin_data) {
       setStdinData(submission.stdin_data);
       setIsStdinOpen(true);
@@ -75,6 +79,8 @@ const MainWorkspace: React.FC = () => {
               onToggleStdin={() => setIsStdinOpen(!isStdinOpen)}
               isStdinOpen={isStdinOpen}
               hasStdinContent={!!stdinData.trim()}
+              selectedLanguage={selectedLanguage}
+              onSelectLanguage={setSelectedLanguage}
             />
             <StdinDrawer
               isOpen={isStdinOpen}

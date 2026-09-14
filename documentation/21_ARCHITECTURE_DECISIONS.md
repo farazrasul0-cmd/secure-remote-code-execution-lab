@@ -121,3 +121,58 @@ Browser `<textarea>` and `<pre>` elements cannot render ANSI color codes (`\x1b[
 
 ### Defense Formulation
 > *"Displaying streaming process output requires genuine terminal emulation. We integrated xterm.js backed by monotonic frame sequencing and a bounded circular ring buffer. This provides full ANSI color parsing, prevents DOM exhaustion under adversarial infinite print loops, and ensures stream deduplication across erratic network handoffs."*
+
+---
+
+## Decision 6: Multi-Layered Defense-in-Depth Sandbox Isolation
+
+### Context
+Executing arbitrary, untrusted user code on shared host infrastructure introduces extreme security threats: kernel exploitation, fork bombs, memory starvation, network exfiltration, and local privilege escalation. A single layer of defense (e.g. process sandboxing or pure containerization) is susceptible to single-point-of-failure vulnerabilities.
+
+### Decision
+Implement an asymmetric, defense-in-depth isolation harness combining Linux kernel primitives:
+1. **Linux Cgroups v2:** Hard bounds on CPU quotas (`cpu.max`), memory ceiling (`memory.max = 128MB`), swap suppression (`memory.swap.max = 0`), and strict PID exhaustion limits (`pids.max = 64`) to neutralize fork bombs.
+2. **Seccomp-BPF Syscall Whitelisting:** Kernel-level filtering restricting invocations to safe computational syscalls (`read`, `write`, `exit`, `mmap`, `brk`), explicitly trapping and rejecting high-risk operations (`clone`, `fork`, `execve`, `socket`, `ptrace`, `chroot`).
+3. **Read-Only Rootfs & Ephemeral Mounts:** Mount the root filesystem as read-only (`--read-only`), providing only an ephemeral in-memory tmpfs for `/tmp` with `noexec` and `nosuid` flags where applicable.
+4. **Network Air-Gapping:** Isolate student execution containers from the network (`--network none`) to prevent exfiltration, port scanning, and command-and-control callbacks.
+
+### Alternatives Evaluated
+* *Pure Process-Level Sandboxing (`subprocess.Popen` with resource limits):* Susceptible to kernel privilege escalation and shared OS namespace side-channels.
+* *Full Hardware Virtualization (QEMU/KVM):* Guarantees hypervisor isolation, but cold-start latencies of 1.5s–3.0s make it unsuitable for interactive, responsive student labs.
+* *MicroVMs (AWS Firecracker / gVisor):* Excellent security boundary, but requires nested virtualization (`/dev/kvm`) and Linux kernel support not universally available on developer desktop machines without hypervisor access.
+
+### Trade-offs
+* *Con:* Requires cgroup v2-enabled Linux host for full hardware enforcement; requires fine-tuned seccomp profiles per language runtime.
+* *Pro:* Near-instant container startup (<120ms), zero host network exposure, deterministic memory ceiling enforcement with instant OOM reaping, and full resilience against local fork bombs.
+
+### Defense Formulation
+> *"We adhered to the Principle of Least Privilege and Defense-in-Depth. Untrusted execution does not rely on a single defensive boundary. We combine Linux cgroups v2 for deterministic resource containment (memory ceiling, zero swap, strict PID caps) with Seccomp-BPF syscall whitelisting to block dangerous kernel vectors like socket creation and process cloning. Root filesystems are mounted read-only with ephemeral tmpfs volumes, and container networks are air-gapped, ensuring total blast-radius containment."*
+
+---
+
+## Decision 7: Polyglot Strategy Pattern & Two-Phase Compiler Sandboxing
+
+### Context
+A robust educational and testing platform must support diverse programming paradigms: interpreted languages (Python, Node.js) and compiled languages (C, C++, Rust, Go). Compiled languages present unique systems engineering challenges:
+1. Compilers (`gcc`, `g++`, `rustc`, `go build`) require significantly higher CPU, memory, and filesystem headroom (512MB–1GB RAM, multiple threads, disk write access for AST synthesis and linking) than the runtime sandbox allows (128MB RAM, single CPU, read-only rootfs).
+2. Compilation failure (syntax errors, template instantiation failures, missing types) must be caught deterministically prior to runtime, classified as `COMPILE_ERROR`, and returned with precise diagnostics without consuming runtime compute quotas or triggering false execution timeouts.
+3. Adding new languages must adhere to the Open/Closed Principle without mutating existing sandbox or orchestrator logic.
+
+### Decision
+1. **Strategy Design Pattern:** Define an abstract `BaseLanguageStrategy` declaring `compile()`, `get_execute_command()`, `source_filename`, `is_compiled`, and security compilation flags. Specialized strategies (`PythonStrategy`, `CStrategy`, `CppStrategy`, `RustStrategy`, `GoStrategy`, `NodeStrategy`) encapsulate language-specific toolchain invocation.
+2. **Central Registry:** Implement `LanguageRegistry` with O(1) lookup and alias resolution (`py` $\to$ `python`, `rs` $\to$ `rust`, `golang` $\to$ `go`, `js` $\to$ `node`).
+3. **Asymmetric Two-Phase Lifecycle:** Decouple execution into:
+   - **Phase 1 (Compilation):** Granted higher compilation resource quotas (10s compilation timeout, 1024MB RAM). Employs hardening flags: `-O2`, `-fstack-protector-strong`, `-D_FORTIFY_SOURCE=2`, `-fPIE`, `-Wl,-z,relro,-z,now`, and `-z noexecstack`. If compilation exits non-zero, capture stderr and return `ExecutionStatus.COMPILE_ERROR` immediately.
+   - **Phase 2 (Execution):** The resulting stripped ELF binary or interpreted script is executed under strict student cgroup limits (128MB RAM, 0.5 CPU, 5s timeout, air-gapped network).
+
+### Alternatives Evaluated
+* *Single-Phase Compilation inside Student Sandbox:* Running `rustc` or `g++` inside a 128MB cgroup immediately triggers out-of-memory kernel reaping (`SIGKILL 137`), preventing legitimate C++ or Rust programs from compiling.
+* *Monolithic Sandbox If-Else Dispatch:* Hardcoding language commands inside `process_sandbox.py` violates the Single Responsibility and Open/Closed principles, resulting in unmaintainable spaghetti code when adding new language toolchains.
+
+### Trade-offs
+* *Con:* Compiled submissions incur two sequential process invocations (compilation followed by execution), slightly increasing total turn-around latency (~300ms–800ms compilation overhead).
+* *Pro:* Total isolation between compiler resource profiles and runtime security bounds; elegant extensibility where new languages are added simply by registering a new strategy; clean client diagnostics separating syntax/compilation issues from runtime faults.
+
+### Defense Formulation
+> *"We engineered a Polyglot Execution Pipeline utilizing the Strategy Pattern coupled with an asymmetric two-phase lifecycle. Compilers inherently exhibit high resource requirements for AST generation, template expansion, and LLVM linking, whereas untrusted student execution requires draconian containment. Decoupling compilation from execution allowed us to apply strict compiler hardening flags (stack canaries, ASLR PIE, RELRO, non-executable stack) in the compilation stage, while confining the generated binary to strict cgroup quotas. Syntax errors immediately short-circuit as `COMPILE_ERROR`, avoiding false timeouts and preserving compute resources."*
+

@@ -2,11 +2,23 @@ export type ExecutionStatus =
   | 'PENDING'
   | 'RUNNING'
   | 'COMPLETED'
+  | 'COMPILE_ERROR'
   | 'TIME_LIMIT_EXCEEDED'
   | 'MEMORY_LIMIT_EXCEEDED'
   | 'OUTPUT_LIMIT_EXCEEDED'
   | 'RUNTIME_ERROR'
   | 'RESOURCE_LIMIT_EXCEEDED';
+
+export type SupportedLanguage = 'python' | 'c' | 'cpp' | 'rust' | 'go' | 'javascript';
+
+export interface LanguageInfo {
+  id: string;
+  name: string;
+  extension: string;
+  is_compiled: boolean;
+  monaco_id: string;
+  boilerplate: string;
+}
 
 export interface User {
   id: string;

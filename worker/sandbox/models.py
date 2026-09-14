@@ -10,6 +10,7 @@ class ExecutionStatus(StrEnum):
     """Execution outcome status classifications."""
 
     COMPLETED = "COMPLETED"
+    COMPILE_ERROR = "COMPILE_ERROR"
     TIME_LIMIT_EXCEEDED = "TIME_LIMIT_EXCEEDED"
     MEMORY_LIMIT_EXCEEDED = "MEMORY_LIMIT_EXCEEDED"
     OUTPUT_LIMIT_EXCEEDED = "OUTPUT_LIMIT_EXCEEDED"
@@ -86,4 +87,7 @@ class ExecutionResult(BaseModel):
     )
     error_message: str | None = Field(
         default=None, description="Detailed explanation if terminated abnormally"
+    )
+    compile_output: str = Field(
+        default="", description="Compiler diagnostic output if compilation occurred"
     )

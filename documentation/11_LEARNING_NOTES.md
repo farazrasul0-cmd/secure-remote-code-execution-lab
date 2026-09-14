@@ -313,6 +313,44 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** Documented in [`documentation/22_RESEARCH_VALUE.md`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/documentation/22_RESEARCH_VALUE.md) and [`benchmarks/results/benchmark_report.md`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/benchmarks/results/benchmark_report.md).
 - **Real-World Examples:** USENIX OSDI / ACM SOSP research publications on container virtualization (gVisor, Firecracker).
 
+---
+
+## 12. Polyglot Execution Pipelines & Compiler Systems
+
+### 12.1 Ahead-of-Time Compilation vs. Interpretation in Multi-Tenant Sandboxes
+- **Concept Learned:** Decoupling language translation from native machine execution.
+- **Simple Explanation:** Interpreted languages (Python, JavaScript) execute source code or bytecode directly within a managed VM runtime process. Ahead-of-Time (AOT) compiled languages (C, C++, Rust, Go) require a separate compilation and linking phase that produces an Architecture-specific ELF binary before any code can run.
+- **Why It Matters:** Single-stage sandboxes fail for compiled languages because syntax errors and type mismatches must be captured during the compilation phase, reporting `COMPILE_ERROR` immediately rather than consuming execution time limits or reporting runtime crashes.
+- **Where It Is Used in This Project:** Built into [`worker/sandbox/process_sandbox.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/process_sandbox.py) and [`worker/sandbox/polyglot/`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/polyglot/).
+- **Real-World Examples:** Online judges (LeetCode, Codeforces, HackerRank), CI/CD pipelines (GitHub Actions, GitLab CI).
+
+### 12.2 Asymmetric Two-Phase Sandbox Lifecycle: Compiler Quotas vs. Runtime Quotas
+- **Concept Learned:** Resource asymmetry between compilation and execution.
+- **Simple Explanation:** Compilers (`g++`, `rustc`) require high peak memory (512MB--1GB) and multi-core CPU power to parse ASTs, instantiate templates, and run optimization passes. In contrast, the student's compiled binary needs tight, restrictive memory limits (128MB) and 0.5 CPU core with no network access. Applying a single uniform cgroup quota introduces an impossible trade-off: either the compiler runs out of memory, or the untrusted runtime is over-provisioned.
+- **Why It Matters:** By introducing an asymmetric two-phase sandbox lifecycle, the system provisions generous resources to the compiler while strictly constraining the resulting binary.
+- **Where It Is Used in This Project:** Enforced in `ProcessSandbox.execute()` and `ProcessSandbox.stream_execute()`.
+- **Real-World Examples:** Google Bazel hermetic build actions, Linux Kbuild system.
+
+### 12.3 Binary Hardening: Stack Canaries, ASLR, Full RELRO & Template Caps
+- **Concept Learned:** Compiler exploit mitigation flags and defensive compilation.
+- **Simple Explanation:** Compilers can inject runtime defenses directly into machine code:
+  - `-fstack-protector-strong`: Injects stack canaries to terminate on buffer overflows.
+  - `-fPIE -pie`: Produces Position Independent Executables to enable kernel ASLR.
+  - `-Wl,-z,relro,-z,now`: Full RELRO makes the Global Offset Table (GOT) read-only at launch.
+  - `-z noexecstack`: Marks stack pages as non-executable (DEP/NX).
+  - `-ftemplate-depth=128`: Caps C++ template metaprogramming recursion to prevent compiler OOM denial-of-service bombs.
+- **Why It Matters:** Even if student code contains memory corruption bugs, these flags force deterministic crashes (`SIGSEGV`, `__stack_chk_fail`) instead of enabling arbitrary shellcode execution.
+- **Where It Is Used in This Project:** Configured in [`worker/sandbox/polyglot/c.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/polyglot/c.py) and [`worker/sandbox/polyglot/cpp.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/polyglot/cpp.py).
+- **Real-World Examples:** Debian Hardening Build Flags, Microsoft Visual C++ `/GS` and `/guard:cf`.
+
+### 12.4 Strategy Design Pattern for Polyglot Extensibility (SOLID Principles)
+- **Concept Learned:** Behavioral Strategy Pattern, factory registration, and Open/Closed Principle.
+- **Simple Explanation:** Rather than using brittle `if/elif` statements inside the execution worker to handle different languages, the Strategy pattern encapsulates language-specific compilation and execution commands inside interchangeable classes inheriting from `BaseLanguageStrategy`.
+- **Why It Matters:** The execution engine depends only on the abstract interface. Supporting a new language requires zero modifications to existing sandbox, scheduling, or streaming code.
+- **Where It Is Used in This Project:** Implemented in [`worker/sandbox/polyglot/base.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/polyglot/base.py) and registered in [`worker/sandbox/polyglot/registry.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/polyglot/registry.py).
+- **Real-World Examples:** VS Code Language Server Protocol (LSP), LLVM target architecture backends.
+
+
 
 
 
