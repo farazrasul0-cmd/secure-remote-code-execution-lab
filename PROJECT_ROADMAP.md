@@ -89,7 +89,7 @@
 
 ### Phase 8: Advanced Systems Architecture (In Progress)
 - [x] Task 8.1: Polyglot Execution Pipeline (C/C++, Rust, Go, Node.js, Strategy Pattern & Two-Phase Compiler Sandboxing).
-- [ ] Task 8.2: Automated Autograding & Problem Verification Engine (Hidden test cases, memory & time limits, grading scorecard UI).
+- [x] Task 8.2: Automated Autograding & Problem Verification Engine (Hidden test cases, memory & time limits, grading scorecard UI).
 - [ ] Task 8.3: Bidirectional Interactive Pseudo-Terminal (PTY, termios, signal multiplexing, interactive REPL).
 - [ ] Task 8.4: Cloud-Native Kubernetes Orchestration & HPA (Helm charts, PodSecurityStandards, Prometheus queue-depth autoscaling).
 

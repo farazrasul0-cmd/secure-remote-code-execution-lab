@@ -176,3 +176,37 @@ A robust educational and testing platform must support diverse programming parad
 ### Defense Formulation
 > *"We engineered a Polyglot Execution Pipeline utilizing the Strategy Pattern coupled with an asymmetric two-phase lifecycle. Compilers inherently exhibit high resource requirements for AST generation, template expansion, and LLVM linking, whereas untrusted student execution requires draconian containment. Decoupling compilation from execution allowed us to apply strict compiler hardening flags (stack canaries, ASLR PIE, RELRO, non-executable stack) in the compilation stage, while confining the generated binary to strict cgroup quotas. Syntax errors immediately short-circuit as `COMPILE_ERROR`, avoiding false timeouts and preserving compute resources."*
 
+---
+
+## Decision 8: Autograding Engine, Deterministic Oracle Verification & Information Hiding
+
+### Context
+Automated programming problem verification requires running untrusted student code against a comprehensive suite of input/output test vectors. This introduces three critical challenges:
+1. **Information Leakage:** If test vectors (inputs and expected outputs) are exposed to client-side code, students can trivially hardcode responses (`if input == X return Y`) without solving the underlying computational problem.
+2. **Execution Flakiness & Contamination:** If subsequent test cases run within the same container or shared memory context, lingering background threads, memory leaks, or unclosed file descriptors cause non-deterministic cascading failures.
+3. **Format & Precision Fragility:** Strict byte-for-byte matching causes false rejections due to cross-platform line ending differences (`\r\n` vs `\n`), trailing whitespace, or IEEE 754 floating-point rounding divergence.
+
+### Decision
+1. **Deterministic Oracle Harness:** Implement an isolated evaluation pipeline in `worker/grading/harness.py`. Each test vector runs with fresh stdin piping and reset CPU/memory watchdog timers. Early compilation errors short-circuit all subsequent test executions immediately.
+2. **Architectural Information Hiding:** Partition test cases into public sample vectors (`is_hidden = False`) and private grading vectors (`is_hidden = True`). Enforce sanitization at the API serialization boundary (`GradingHarness.sanitize_for_student`): for all hidden test vectors, input data and expected answers are permanently scrubbed to `[REDACTED: HIDDEN TEST CASE]` before returning JSON responses to unprivileged students.
+3. **Multi-Mode Verification Comparator:** Implement an extensible output comparator supporting:
+   - `NORMALIZED`: CRLF-to-LF conversion, trailing whitespace stripping, and trailing newline pruning.
+   - `STRICT`: Byte-for-byte exact equality.
+   - `EPSILON`: Token-based floating-point comparison enforcing $\frac{|y_{\text{act}} - y_{\text{exp}}|}{\max(1.0, |y_{\text{exp}}|)} \le 10^{-6}$.
+4. **Weighted Scoring Model:** Calculate aggregate submission score as:
+   $$\text{Score} = \frac{\sum_{i \in \text{passed}} \text{Weight}_i}{\sum_{i \in \text{total}} \text{Weight}_i} \times 100$$
+   Assigning discrete verdicts (`ACCEPTED`, `PARTIAL`, `WRONG_ANSWER`, `TIME_LIMIT_EXCEEDED`, `MEMORY_LIMIT_EXCEEDED`, `COMPILE_ERROR`).
+
+### Alternatives Evaluated
+* *Client-Side Test Case Verification:* Sending test cases to the frontend and checking stdout in JavaScript. Catastrophic security flaw allowing total oracle extraction via DevTools.
+* *Monolithic Shell Script Grading Harness:* Running bash scripts inside the container to diff files. Inflexible, prone to shell injection, and cannot provide structured JSON telemetry.
+* *Binary All-or-Nothing Scoring:* Rejecting students without partial credit. Discourages learning and fails to reward correct logic on subsets of test cases.
+
+### Trade-offs
+* *Con:* Evaluating $N$ test cases requires $N$ process invocations, scaling execution latency linearly with test suite size ($T_{\text{total}} = \sum t_i$).
+* *Pro:* Total isolation between test vectors; complete prevention of hardcoded oracle cheats; robust, platform-agnostic output verification; and fine-grained partial credit feedback.
+
+### Defense Formulation
+> *"We implemented an autograding verification architecture founded on the Principle of Information Hiding and formal oracle verification. To eliminate oracle extraction attacks and hardcoded cheat solutions, private test vectors are cryptographically scrubbed at the serialization gateway, ensuring students receive deterministic runtime metrics without revealing underlying proprietary test data. Our multi-mode verifier normalizes line endings and applies IEEE 754 $\epsilon$-tolerance, preventing false negatives while maintaining rigorous algorithmic standards."*
+
+

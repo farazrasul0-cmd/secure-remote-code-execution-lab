@@ -2,6 +2,16 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [1.2.0] - 2026-09-14
+### Added
+- **Automated Autograding & Problem Verification Engine (`worker/grading/`)**: Implemented deterministic oracle evaluation harness (`GradingHarness`), output normalizer (`OutputNormalizer`), and multi-mode result verifier (`ResultVerifier`) supporting `NORMALIZED`, `STRICT`, `TOKEN`, and `EPSILON` floating-point tolerance ($\le 10^{-6}$).
+- **Information Hiding & Oracle Protection (`GradingHarness.sanitize_for_student`)**: Enforced server-side test vector sanitization; private system test inputs and expected outputs are cryptographically scrubbed to `[REDACTED: HIDDEN TEST CASE]` before serialization, preventing hardcoded cheat submissions.
+- **Problem & TestCase Database Schemas & Migrations (`backend/app/models/problem.py`, `002_autograding_problems_and_test_cases.py`)**: Added `Problem` and `TestCase` entities with difficulty ratings, time/memory constraints, test point weights, and visibility flags; added `score`, `max_score`, and `grading_status` to `submissions`.
+- **Problem Autograding APIs (`backend/app/api/v1/endpoints/problems.py`)**: Implemented REST endpoints for problem catalog discovery, detailed problem retrieval with visible sample test cases, admin problem creation, code submission autograding, and scorecard retrieval.
+- **Seed Algorithmic Problems**: Seeded standard introductory challenges (Two Sum, Valid Palindrome, Nth Fibonacci) with mixed visible sample and hidden grading test cases.
+- **Frontend Problem Catalog & Autograding Scorecard UI (`ProblemPanel.tsx`, `GradingScorecard.tsx`, `App.tsx`)**: Created catalog browser with difficulty tags, markdown specifications, sample I/O viewers, "Submit for Grading" triggers, and comprehensive scorecard modals with per-test runtime metrics and padlock icons for hidden vectors.
+- **Autograding Pytest Suite (`test_autograding.py`)**: Authored 6 unit and integration tests verifying output normalization modes, floating-point divergence detection, test harness score aggregation, information hiding sanitization, and API submission grading (growing test suite to 40/40 passing tests).
+
 ## [1.1.0] - 2026-09-14
 ### Added
 - **Polyglot Strategy Engine (`worker/sandbox/polyglot/`)**: Implemented the Strategy Design Pattern for multi-language execution runtimes, introducing `BaseLanguageStrategy`, `LanguageRegistry`, and dedicated strategies for Python 3.12, C17 (GCC 14), C++20 (G++ 14), Rust 2021, Go 1.22, and JavaScript (Node.js 20).
