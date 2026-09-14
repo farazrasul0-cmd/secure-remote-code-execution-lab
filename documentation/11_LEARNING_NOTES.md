@@ -540,7 +540,30 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Simple Explanation:** Cursors, selections, and user typing indicators change 60 times per second. Persisting these in PostgreSQL would cause database I/O thrashing. Instead, ephemeral awareness is broadcast purely over Redis Pub/Sub and WebSocket frames with heartbeat timeouts, while durable source code snapshots are persisted to PostgreSQL on explicit save/run events.
 - **Why It Matters:** Protects transactional database engines from unbounded write amplification during active collaborative editing sessions.
 - **Where It Is Used in This Project:** Preserved in [`backend/app/models/room.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/models/room.py) and [`backend/app/services/room_service.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/services/room_service.py).
-- **Real-World Examples:** Liveblocks presence API, Supabase Realtime Presence.
+---
+
+## 19. Chaos Engineering & Distributed Fault Tolerance
+
+### 19.1 Controlled Turbulence & Steady-State Verification
+- **Concept Learned:** Formulating empirical hypotheses to verify that distributed architectures recover automatically from abrupt synthetic failures.
+- **Simple Explanation:** Instead of hoping that Redis never drops a connection or that worker nodes never get OOM-killed, Chaos Engineering proactively injects faults (broken TCP sockets, killed child processes, malformed payloads) to guarantee that supervisors, reconnection buffers, and retry loops self-heal without cascading outages.
+- **Why It Matters:** In high-concurrency multi-tenant platforms, partial failures are inevitable. A resilient platform degrades gracefully rather than suffering total fleet death.
+- **Where It Is Used in This Project:** Validated systematically in [`backend/tests/test_chaos_resilience.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/tests/test_chaos_resilience.py).
+- **Real-World Examples:** Netflix Chaos Monkey, AWS Fault Injection Simulator (FIS), Gremlin, Chaos Mesh.
+
+### 19.2 Poison Pill Quarantining & Dead-Letter Isolation
+- **Concept Learned:** Defending worker fleets against malicious or malformed tasks that cause worker child crashes.
+- **Simple Explanation:** If an adversarial user submits corrupt bytecode or an invalid payload that causes a worker to crash on deserialization, an unshielded queue will repeatedly redeliver the task, crashing every worker in sequence until the entire pool is dead. Poison-pill protection catches unrecognized payloads, encapsulates them into a structured `SYSTEM_ERROR` status, dispatches an error stream chunk to the user, and terminates the task without retrying.
+- **Why It Matters:** Neutralizes denial-of-service attempts where a single attacker attempts to starve an entire university lab's compute resources.
+- **Where It Is Used in This Project:** Handled in [`worker/tasks/execution.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/tasks/execution.py) and verified in [`test_chaos_poison_pill_payload_isolation`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/tests/test_chaos_resilience.py).
+- **Real-World Examples:** Celery reject-on-worker-lost, SQS Dead-Letter Queues (DLQ), Kafka poison pill handlers.
+
+### 19.3 Network Partitions & Reconnection Stream Catch-up Replay
+- **Concept Learned:** Preserving stream consistency ($C_m$) under CAP theorem network partition events via short-lived circular replay buffers.
+- **Simple Explanation:** When a student's WiFi drops mid-execution, the worker continues streaming terminal chunks. By saving every stdout/stderr chunk with a strictly monotonic sequence ID into a 60-second Redis list (`rce:buffer:<id>`), the student's browser reconnects, passes `last_sequence_id`, and replays all missed frames gaplessly before resuming live output.
+- **Why It Matters:** Guarantees that students never lose compiler diagnostics or test results due to transient network hiccups.
+- **Where It Is Used in This Project:** Implemented in [`worker/streaming/multiplexer.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/streaming/multiplexer.py) and replayed in [`backend/app/api/v1/endpoints/websocket.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/websocket.py).
+- **Real-World Examples:** Kafka consumer offset replays, Redis Streams XREAD from ID, TCP sequence acknowledgment sliding windows.
 
 
 

@@ -143,7 +143,7 @@ async def _stream_and_collect(
 
         finally:
             input_task.cancel()
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await input_task
             await redis_client.aclose()
 
