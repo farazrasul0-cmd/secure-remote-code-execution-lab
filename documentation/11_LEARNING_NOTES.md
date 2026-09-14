@@ -565,6 +565,39 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** Implemented in [`worker/streaming/multiplexer.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/streaming/multiplexer.py) and replayed in [`backend/app/api/v1/endpoints/websocket.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/websocket.py).
 - **Real-World Examples:** Kafka consumer offset replays, Redis Streams XREAD from ID, TCP sequence acknowledgment sliding windows.
 
+---
+
+## 20. Production Release Engineering, CI/CD GitOps & Disaster Recovery
+
+### 20.1 Continuous Integration & Automated GitOps Verification
+- **Concept Learned:** Continuous compilation, automated linting, security vulnerability analysis, and container publishing triggered on git branch pushes.
+- **Simple Explanation:** Instead of manually running tests or building images on local workstations, every git commit triggers parallel runners in GitHub Actions that enforce formatting (`ruff`), type correctness (`tsc`), test suite execution (Pytest with 100% pass rate), Helm chart linting, and Trivy CVE scanning before code can merge into production.
+- **Why It Matters:** Eliminates the "works on my machine" syndrome and prevents catastrophic regressions or vulnerable container images from reaching production clusters.
+- **Where It Is Used in This Project:** Configured in [`.github/workflows/ci.yml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/.github/workflows/ci.yml) and [`.github/workflows/docker-publish.yml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/.github/workflows/docker-publish.yml).
+- **Real-World Examples:** GitHub Actions, GitLab CI, ArgoCD, Flux GitOps.
+
+### 20.2 Secret Management: Kubernetes Secrets vs. Vault Dynamic Secrets
+- **Concept Learned:** Zero-trust credentials injection protecting API tokens, database passwords, and encryption keys.
+- **Simple Explanation:** Hardcoding secrets in git or container images allows unauthorized exfiltration. Production architectures use base64-encoded Kubernetes Secrets or HashiCorp Vault. Vault adds dynamic on-demand credential generation, lease revocation, and automatic secret rotation without restarting application pods.
+- **Why It Matters:** Eliminates static credentials that could leak via source code repositories or build logs.
+- **Where It Is Used in This Project:** Parameterized in [`helm/rce-platform/values.yaml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform/values.yaml) with provider toggles (`kubernetes` vs. `vault`).
+- **Real-World Examples:** HashiCorp Vault, AWS Secrets Manager, GCP Secret Manager, External Secrets Operator (ESO).
+
+### 20.3 Database Disaster Recovery: Point-In-Time Recovery & Retention Lifecycles
+- **Concept Learned:** Defining Recovery Point Objective (RPO) and Recovery Time Objective (RTO) for persistent data tiers.
+- **Simple Explanation:** Database storage can suffer corruption, accidental drops, or volume hardware failures. An automated Kubernetes CronJob triggers `pg_dump`, streams the archive through gzip compression, stores the artifact on dedicated persistent storage, and prunes archives older than 7 days using POSIX file retention rotation.
+- **Why It Matters:** Guarantees that student submission records, user accounts, and challenge problems can be fully restored even under total catastrophic datacenter failure.
+- **Where It Is Used in This Project:** Automated in [`helm/rce-platform/templates/cronjob-backup.yaml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform/templates/cronjob-backup.yaml).
+- **Real-World Examples:** AWS RDS Automated Backups, WAL-G / pgBackRest for PostgreSQL, Velero for Kubernetes cluster volume backups.
+
+### 20.4 Declarative Alerting & Service-Level Objectives (SLOs)
+- **Concept Learned:** Prometheus declarative alerting rules and alert routing via Alertmanager.
+- **Simple Explanation:** Dashboards require humans to stare at graphs; alerts proactively wake on-call engineers when Service Level Objectives (SLOs) are breached. PromQL rules continuously evaluate metrics (queue lag > 20 jobs, 5xx HTTP rate > 5%, DB connection saturation > 85%, sandbox OOM kill spikes) and fire notifications before users notice degradation.
+- **Why It Matters:** Transforms reactive incident triage into proactive automated self-healing and rapid engineer notification.
+- **Where It Is Used in This Project:** Implemented via `PrometheusRule` in [`helm/rce-platform/templates/prometheus-rules.yaml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform/templates/prometheus-rules.yaml).
+- **Real-World Examples:** Prometheus Operator, Prometheus Alertmanager, PagerDuty, Grafana OnCall.
+
+
 
 
 
