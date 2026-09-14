@@ -1,18 +1,28 @@
 # Secure Real-Time Remote Code Execution Laboratory Platform
 
+[![CI Pipeline](https://github.com/farazrasul0-cmd/secure-remote-code-execution-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/farazrasul0-cmd/secure-remote-code-execution-lab/actions)
+[![Security Scan](https://github.com/farazrasul0-cmd/secure-remote-code-execution-lab/actions/workflows/security-scan.yml/badge.svg)](https://github.com/farazrasul0-cmd/secure-remote-code-execution-lab/actions)
+[![Release](https://img.shields.io/badge/release-v2.0.0-blue.svg)](https://github.com/farazrasul0-cmd/secure-remote-code-execution-lab/releases)
+[![Tests](https://img.shields.io/badge/tests-88%20passed-brightgreen.svg)]()
+[![Kubernetes](https://img.shields.io/badge/kubernetes-v1.30-326ce5.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-green.svg)]()
+
 A distributed, multi-tenant remote code execution platform and virtual computer lab engineered with operating system virtualization primitives, asynchronous task distribution, and low-latency real-time standard I/O streaming.
 
-Developed as a Master's portfolio project demonstrating graduate-level systems knowledge across **Operating Systems**, **Distributed Systems**, **Networking**, **Cybersecurity**, and **Cloud Infrastructure**.
+Graduated to **v2.0.0 Production Release** as a Master's portfolio project demonstrating graduate-level systems knowledge across **Operating Systems**, **Distributed Systems**, **Networking**, **Cybersecurity**, and **Cloud Infrastructure**.
 
 ---
 
 ## 1. Key Architectural Features
 
-- **In-Browser IDE & Terminal:** Interactive code editor (Monaco Editor) paired with an ANSI terminal (xterm.js) delivering desktop-grade editing and terminal output.
-- **Full-Duplex Real-Time Streaming:** Sub-second output streaming using WebSockets multiplexed over a high-throughput Redis Pub/Sub bus.
-- **Decoupled Asynchronous Processing:** FastAPI gateway buffers execution requests into Redis queues, completely isolating web threads from compute workloads.
-- **Zero-Trust Hardened Sandbox:** Docker containers hardened with Linux cgroups v2 resource controllers, unprivileged user namespaces (`uid=1001`), read-only root filesystems, dropped capabilities (`CAP_DROP ALL`), restricted Seccomp syscall profiles, and strict network isolation (`--net=none`).
-- **Telemetry & Historical Persistence:** PostgreSQL database recording execution runtimes, peak memory usage, exit codes, and audit logs.
+- **Polyglot Multi-Language Sandbox:** Pluggable execution engine supporting Python 3.12, C17 (GCC 14), C++20 (G++ 14), Rust 2021, Go 1.22, and Node.js 20 with hardened compiler sanitizers (`-fstack-protector-strong`, PIE, RELRO).
+- **Interactive PTY Pseudo-Terminal:** Low-level POSIX PTY allocation with dynamic window resizing (`TIOCSWINSZ`), upstream keystroke streaming, and out-of-band `Ctrl+C` (`SIGINT`) signal handling.
+- **Micro-VM & Hardware Virtualization Drivers:** Pluggable sandbox hierarchy (`ProcessSandbox`, `DockerSandbox`, `MicroVMSandbox`) with automated host KVM capability probing and benchmarking harness.
+- **Automated Algorithmic Autograding:** Automated problem verification engine with floating-point epsilon matching, strict/token normalization, and cryptographically hidden oracle test vectors.
+- **Collaborative Coding Rooms:** Multi-user collaborative pair-programming rooms with dual-channel WebSocket multiplexing (`rce:room:sync` for document deltas and `rce:room:exec` for live output broadcasts).
+- **Distributed Observability:** OpenTelemetry W3C `traceparent` context propagation across Redis and Celery queues for end-to-end distributed tracing.
+- **Cloud-Native Kubernetes & GitOps:** Production Helm chart (`helm/rce-platform/`) with PodSecurityStandards Restricted enforcement, Zero-Trust NetworkPolicies, Celery queue-depth HPA autoscaling, automated PostgreSQL disaster recovery backups, and Prometheus alerting rules.
+- **GitHub Actions CI/CD Pipeline:** Multi-job automated verification enforcing Ruff linting, 100% Pytest pass rates, TypeScript typechecking, Trivy vulnerability scanning, and multi-service GHCR publishing.
 
 ---
 
@@ -30,15 +40,15 @@ Developed as a Master's portfolio project demonstrating graduate-level systems k
 
 ---
 
-## 3. Minimum Viable Product (MVP) Scope — Version 1.0
+## 3. Platform Evolution Milestones
 
-The Version 1.0 milestone delivers a complete, verifiable end-to-end implementation:
-- **Language Support:** **Python 3.11** execution only.
-- **User Authentication:** JWT access & refresh tokens (Argon2id password hashing) with Role-Based Access Control (`Student`, `Admin`).
-- **Code Submission:** Web-based submission interface with Monaco Editor and optional standard input (`stdin`) configuration.
-- **Sandbox Execution:** Hardened, unprivileged ephemeral Docker container with cgroup v2 limits, read-only rootfs, and memory-backed `tmpfs`.
-- **WebSocket Output:** Real-time bi-directional streaming from worker to browser via Redis Pub/Sub and FastAPI WebSockets.
-- **Execution History:** PostgreSQL persistence of past submissions, execution metrics (duration, memory, exit code), and execution logs.
+- **v1.0.0 (MVP):** Single-tenant Python container runner, FastAPI gateway, and xterm.js streaming.
+- **v1.1.0 (Polyglot):** 6-language compilation engine with defense-in-depth compiler hardening.
+- **v1.2.0 (Autograding):** LeetCode-style autograding engine with hidden test cases and scorecards.
+- **v1.3.0 (Interactive PTY):** True bidirectional PTY pseudo-terminal with signals and window geometry.
+- **v1.4.0 (Kubernetes):** Helm charts, PodSecurityStandards Restricted, and Queue-Depth HPA.
+- **v1.5.0 (Resilience & Micro-VM):** AWS Firecracker-style micro-VM drivers, OpenTelemetry tracing, collaborative rooms, and Chaos Engineering fault tolerance.
+- **v2.0.0 (Production Release):** GitHub Actions CI/CD GitOps pipelines, Trivy security scanning, automated database disaster recovery backups, Prometheus declarative alerting, and GHCR container publishing.
 
 ---
 

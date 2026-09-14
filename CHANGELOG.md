@@ -2,6 +2,16 @@
 
 All notable changes to the Secure Real-Time Remote Code Execution Laboratory Platform will be documented in this file.
 
+## [2.0.0] - 2026-09-15
+### Added
+- **Automated CI/CD GitOps Workflows (`.github/workflows/ci.yml`)**: Implemented GitHub Actions pipeline orchestrating multi-job parallel verification: Python 3.12 Ruff linting, Pytest test suite (100% pass across 88 tests), Node 20 TypeScript type-checking, and Helm chart linting (`helm lint`).
+- **Security & Secret Vulnerability Scanning (`.github/workflows/security-scan.yml`)**: Integrated Aqua Security Trivy scanning container filesystems, dependencies, and git commits for CVEs and leaked secrets; added automated validation of custom Seccomp-BPF profiles.
+- **Multi-Service OCI Publishing Pipeline (`.github/workflows/docker-publish.yml`)**: Configured automated multi-arch container image builds with Docker Buildx and GitHub Actions caching, publishing version-tagged images (`backend-api`, `worker`, `frontend-ide`, `sandbox-python`) directly to GitHub Container Registry (GHCR).
+- **Automated Database Disaster Recovery & Backups (`helm/rce-platform/templates/cronjob-backup.yaml`)**: Engineered automated Kubernetes CronJob executing nightly `pg_dump` extractions with `gzip` compression, timestamped filenames, 7-day retention rotation (`find -mtime +7 -delete`), and persistent storage volume claims.
+- **Enterprise Secret Management Abstraction (`helm/rce-platform/values.yaml`)**: Configured declarative values supporting native Kubernetes Secret providers or HashiCorp Vault key injection via sidecar or External Secrets Operator.
+- **Declarative Prometheus Alerting Engine (`helm/rce-platform/templates/prometheus-rules.yaml`)**: Configured PrometheusRule custom resources detecting critical production anomalies: Celery worker queue depth saturation (>20 jobs for 2m), HTTP 5xx error rate spikes (>5% for 3m), PostgreSQL connection pool exhaustion (>85% max connections), and elevated sandbox OOM killer events.
+- **Production Architecture Decision Records & Master's Defense Suite (`documentation/21_ARCHITECTURE_DECISIONS.md`, `11_LEARNING_NOTES.md`)**: Synthesized comprehensive academic defense briefs, systems design rationales, and graduate-level explanations covering CI/CD GitOps, Secret Management, Disaster Recovery, and Observability.
+
 ## [1.5.0] - 2026-09-15
 ### Added
 - **Micro-VM Hardware Virtualization Driver (`worker/sandbox/microvm_sandbox.py`)**: Implemented `MicroVMSandbox` supporting hardware-assisted fault boundaries, guest memory envelope isolation, POSIX signal propagation, and watchdog timeout supervisors inspired by AWS Firecracker and Linux KVM (`/dev/kvm`).
