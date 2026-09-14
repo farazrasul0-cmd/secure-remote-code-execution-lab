@@ -1,0 +1,67 @@
+# -- Worker Deployment (Celery Execution Workers) ------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rce-platform.fullname" . }}-worker
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "rce-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "rce-platform.name" . }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "rce-platform.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "rce-platform.securityContext" . | nindent 8 }}
+      containers:
+        - name: worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            {{- include "rce-platform.containerSecurityContext" . | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "rce-platform.fullname" . }}-config
+            - secretRef:
+                name: {{ include "rce-platform.fullname" . }}-secrets
+          env:
+            - name: REDIS_URL
+              value: {{ .Values.worker.env.REDIS_URL | quote }}
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import celery; print('ok')"
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import celery; print('ok')"
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: sandbox-scratch
+              mountPath: /sandbox
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: sandbox-scratch
+          emptyDir:
+            sizeLimit: 128Mi

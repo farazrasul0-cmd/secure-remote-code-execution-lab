@@ -1,0 +1,19 @@
+# -- Frontend ClusterIP Service ------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rce-platform.fullname" . }}-frontend
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "rce-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "rce-platform.name" . }}
+    app.kubernetes.io/component: frontend
+  ports:
+    - port: {{ .Values.frontend.service.port }}
+      targetPort: 80
+      protocol: TCP
+      name: http

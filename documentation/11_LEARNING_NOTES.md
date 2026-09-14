@@ -424,6 +424,46 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** Orchestrated in [`backend/app/api/v1/endpoints/websocket.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/websocket.py) and [`worker/tasks/execution.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/tasks/execution.py).
 - **Real-World Examples:** Enterprise message backplanes (Redis, Kafka, NATS), cloud IDE architectures (GitHub Codespaces, Gitpod, AWS Cloud9).
 
+---
+
+## 15. Cloud-Native Kubernetes Orchestration, Helm Packaging & Autoscaling
+
+### 15.1 Deployments vs. StatefulSets & Stable Pod Network Identity
+- **Concept Learned:** Kubernetes Deployments manage interchangeable stateless pods, while StatefulSets manage stateful workloads with stable ordinals, dedicated PersistentVolumeClaims, and headless DNS resolution.
+- **Simple Explanation:** A Deployment creates pods with random names (`backend-7f8b4c-x9kzn`) that can be killed and replaced freely. A StatefulSet creates pods with predictable identifiers (`postgres-0`, `redis-0`) where each pod re-attaches to its own dedicated persistent storage upon rescheduling.
+- **Why It Matters:** Databases require write-ahead log integrity. If a PostgreSQL pod restarts on a different node but mounts the wrong volume, data corruption or split-brain occurs. StatefulSets guarantee `postgres-0` always binds to `pvc-postgres-0`.
+- **Where It Is Used in This Project:** StatefulSets for PostgreSQL and Redis in [`helm/rce-platform/templates/statefulset-postgres.yaml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform/templates/statefulset-postgres.yaml) and [`statefulset-redis.yaml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform/templates/statefulset-redis.yaml); Deployments for frontend, backend, and worker.
+- **Real-World Examples:** Zalando Postgres Operator, Redis Sentinel, Apache Kafka brokers.
+
+### 15.2 Pod Security Standards (PSS) & Restricted Admission Profile
+- **Concept Learned:** Kubernetes namespace-level admission enforcement preventing privilege escalation via `pod-security.kubernetes.io/enforce: restricted`.
+- **Simple Explanation:** The Restricted profile requires every container to: drop ALL Linux capabilities, run as non-root, set `allowPrivilegeEscalation: false`, use `readOnlyRootFilesystem: true`, and declare `seccompProfile: RuntimeDefault`. Any pod violating these constraints is rejected at admission time.
+- **Why It Matters:** Prevents container breakout attacks (e.g., CVE-2024-21626 runc, Dirty COW kernel exploits) from escalating to host-level root access.
+- **Where It Is Used in This Project:** Enforced at namespace level in [`namespace.yaml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform/templates/namespace.yaml) and applied via `_helpers.tpl` security context templates.
+- **Real-World Examples:** CIS Kubernetes Benchmark, PCI-DSS container compliance, DoD Iron Bank hardened images.
+
+### 15.3 Zero-Trust NetworkPolicies & Microsegmentation
+- **Concept Learned:** Distributed in-cluster firewalling using default-deny-all policies with label-selector whitelists.
+- **Simple Explanation:** By default, every Kubernetes pod can reach every other pod. A `default-deny-all` NetworkPolicy blocks all ingress and egress. Then explicit rules open only the exact ports needed: frontend → backend (8000), backend → PostgreSQL (5432) and Redis (6379), worker → Redis (6379). Workers receive zero ingress.
+- **Why It Matters:** If a student's sandbox code achieves arbitrary code execution, NetworkPolicies prevent lateral movement to databases, metadata services (`169.254.169.254`), or other student pods.
+- **Where It Is Used in This Project:** Implemented in [`networkpolicies.yaml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform/templates/networkpolicies.yaml) with 6 policies (default-deny, frontend, backend, worker, postgres, redis).
+- **Real-World Examples:** Cilium eBPF microsegmentation, Calico tiered policy, AWS Security Groups for Pods.
+
+### 15.4 Horizontal Pod Autoscaling (HPA v2) & Little's Law Queue-Depth Scaling
+- **Concept Learned:** Autoscaling worker replicas based on custom Prometheus queue-depth metrics rather than CPU utilization.
+- **Simple Explanation:** CPU-based HPA fails for I/O-bound or sleep-heavy workers: a sleeping process uses 0% CPU while thousands of tasks queue up. Instead, Little's Law ($L = \lambda W$) predicts that queue backlog ($L$) is the leading indicator. Worker replicas are calculated as $\text{Replicas} = \lceil \frac{\text{Queue Depth}}{\text{Target Per Worker}} \rceil$.
+- **Why It Matters:** During deadline bursts (e.g., 200 students submitting at 11:59 PM), queue-depth HPA detects backlog within seconds and scales workers from 2 to 20 pods, maintaining sub-second queueing latency.
+- **Where It Is Used in This Project:** Configured in [`hpa-worker.yaml`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform/templates/hpa-worker.yaml) with `rce_worker_queue_depth` custom metric (target: 5 per worker, max: 20 replicas).
+- **Real-World Examples:** AWS SQS-based Celery autoscaling, Uber dispatch engine scaling.
+
+### 15.5 Helm Chart Parameterization & Environment Portability
+- **Concept Learned:** Packaging Kubernetes manifests into parameterized Helm charts with Go template syntax and centralized `values.yaml`.
+- **Simple Explanation:** Instead of hardcoding image tags, replica counts, and database passwords in YAML, Helm templates reference `{{ .Values.worker.replicaCount }}` and `{{ .Values.postgres.env.POSTGRES_PASSWORD | b64enc }}`. Different environments (dev, staging, production) are configured simply by overriding values files.
+- **Why It Matters:** Enables reproducible, one-command deployments (`helm install rce-lab ./helm/rce-platform`) across local minikube, cloud GKE/EKS/AKS clusters, and CI/CD pipelines.
+- **Where It Is Used in This Project:** Full chart in [`helm/rce-platform/`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/helm/rce-platform) with 17 templates and `values.yaml`.
+- **Real-World Examples:** CNCF Artifact Hub, Bitnami charts, Datadog Helm chart.
+
+
 
 
 

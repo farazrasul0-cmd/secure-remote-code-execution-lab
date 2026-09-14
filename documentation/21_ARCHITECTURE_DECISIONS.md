@@ -242,5 +242,39 @@ Standard remote code execution systems pipe static standard input into a process
 ### Defense Formulation
 * > *"We designed our interactive terminal architecture around Linux PTY master/slave virtual character devices decoupled from the web tier via a full-duplex Redis Pub/Sub backplane. Rather than coupling browser WebSockets directly to worker processes or incurring the heavyweight latency of per-container SSH daemons, our system separates downstream terminal streaming from upstream control framing. Window resize ioctls (`TIOCSWINSZ`) propagate dynamically across the network to emit kernel `SIGWINCH` signals, while `SIGINT` events allow users to halt infinite loops with zero worker host contamination."*
 
+---
+
+## Decision 10: Cloud-Native Kubernetes Orchestration, Helm Packaging & Queue-Depth Autoscaling
+
+### Context
+Deploying a multi-service distributed platform (frontend, backend API, Celery workers, PostgreSQL, Redis) to production requires solving several infrastructure challenges:
+1. **Reproducible Deployments:** Static YAML manifests with hardcoded values break across environments (dev, staging, production). Image tags, replica counts, secrets, and resource limits must be parameterized.
+2. **Stateful Data Persistence:** PostgreSQL and Redis require persistent storage that survives pod eviction, node failure, and rolling upgrades without data loss.
+3. **Lateral Movement Prevention:** If untrusted student code achieves sandbox escape, the attacker must be prevented from reaching databases, cloud metadata endpoints, or other student workloads via the flat Kubernetes network.
+4. **Elastic Capacity Under Burst Load:** CPU-based autoscaling fails for I/O-bound Celery workers (sleeping tasks consume 0% CPU while queue backlog grows unbounded). Autoscaling must be driven by queue depth.
+5. **Container Privilege Minimization:** Every workload must enforce the Principle of Least Privilege at the Linux kernel level to prevent privilege escalation attacks.
+
+### Decision
+1. **Helm Chart Packaging:** Package the entire platform into a parameterized Helm chart (`helm/rce-platform/`) with 17 Go-templated manifests, centralized `values.yaml`, and reusable helper templates (`_helpers.tpl`).
+2. **StatefulSets for Data Services:** Deploy PostgreSQL 16 and Redis 7 as StatefulSets with dedicated PersistentVolumeClaim templates (10Gi and 2Gi respectively), headless services for stable DNS, and health probe commands (`pg_isready`, `redis-cli ping`).
+3. **PodSecurityStandards Restricted:** Enforce namespace-level `pod-security.kubernetes.io/enforce: restricted` requiring non-root UIDs (10001), dropped ALL capabilities, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, and `seccompProfile: RuntimeDefault` across all workloads.
+4. **Zero-Trust NetworkPolicy Suite:** Deploy 6 NetworkPolicies: default-deny-all baseline, then microsegmented whitelists allowing only exact inter-service communication paths (frontend→backend, backend→postgres/redis, worker→redis). Workers receive zero ingress.
+5. **Queue-Depth HPA v2 Autoscaling:** Scale worker Deployments on custom Prometheus metric `rce_worker_queue_depth` (target: 5 pending submissions per worker, max: 20 replicas) with aggressive scale-up (0s stabilization) and conservative scale-down (300s stabilization). Backend API scales on CPU/memory utilization.
+6. **Ingress with WebSocket Upgrade:** Configure `ingress-nginx` with path-based routing (`/api`→backend, `/ws`→backend, `/`→frontend) and 3600-second proxy timeout annotations for long-running interactive PTY sessions.
+
+### Alternatives Evaluated
+* *Raw Kubernetes YAML without Helm:* Hardcoded manifests are non-portable across environments and require manual find-and-replace for every configuration change. Rejected for maintainability.
+* *Docker Compose in Production:* Lacks pod-level security enforcement, NetworkPolicies, PersistentVolumeClaims, health-based rescheduling, and horizontal autoscaling. Suitable only for local development.
+* *CPU-Based Worker HPA:* Celery workers executing short `sleep()` or I/O-bound tasks report near-zero CPU utilization. HPA never triggers, causing unbounded queue growth and student wait times. Rejected in favor of queue-depth scaling.
+* *Default Kubernetes Network (No Policies):* Every pod can reach every other pod. A sandbox-escaped process can port-scan PostgreSQL (5432), exfiltrate data, or query `169.254.169.254` for cloud credentials. Rejected for zero-trust microsegmentation.
+
+### Trade-offs
+* *Con:* Helm templating adds syntactic complexity and requires Helm CLI tooling. NetworkPolicies require a CNI plugin that supports them (e.g., Cilium, Calico). Custom metrics HPA requires Prometheus Adapter or KEDA installation.
+* *Pro:* One-command reproducible deployments; namespace-level security enforcement; zero lateral movement; elastic capacity under burst load; and persistent, crash-safe data services.
+
+### Defense Formulation
+> *"We engineered a cloud-native deployment architecture using Helm-parameterized Kubernetes manifests enforcing PodSecurityStandards Restricted at the namespace admission level. Zero-trust NetworkPolicies implement default-deny-all with microsegmented label-selector whitelists, preventing lateral movement from compromised sandbox pods. Worker autoscaling applies Little's Law ($L = \lambda W$) via HPA v2 custom metrics, scaling on Redis queue depth rather than CPU utilization—eliminating the blind spot where I/O-bound workers report 0% CPU while thousands of tasks queue. StatefulSets with dedicated PVCs guarantee crash-consistent data persistence for PostgreSQL WAL files and Redis AOF journals."*
+
+
 
 

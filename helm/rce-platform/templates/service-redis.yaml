@@ -1,0 +1,19 @@
+# -- Redis ClusterIP Service ---------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "rce-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "rce-platform.name" . }}
+    app.kubernetes.io/component: redis
+  ports:
+    - port: {{ .Values.redis.service.port }}
+      targetPort: 6379
+      protocol: TCP
+      name: tcp-redis
