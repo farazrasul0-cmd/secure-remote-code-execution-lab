@@ -382,6 +382,49 @@ Secure Computing Mode with Berkeley Packet Filter (Seccomp-BPF) inspects system 
 - **Where It Is Used in This Project:** Built into [`worker/grading/normalizer.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/grading/normalizer.py) and [`worker/grading/verifier.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/grading/verifier.py).
 - **Real-World Examples:** Codeforces `testlib.h` special judge checkers, Kattis problem verification suite.
 
+---
+
+## 14. Bidirectional Pseudo-Terminal (PTY) Architecture & Interactive Terminal Emulation
+
+### 14.1 Linux PTY Architecture & Master/Slave Virtual Character Devices
+- **Concept Learned:** Decoupling interactive user I/O from program execution using virtual character device pairs (`/dev/ptmx` and `/dev/pts/N`).
+- **Simple Explanation:** Standard pipes (`pipe(2)`) are dumb unidirectional byte streams with no terminal semantics—processes connected to pipes automatically disable interactive features (line editing, terminal coloring, raw keystrokes). A Pseudo-Terminal (PTY) provides a bidirectional software terminal: the emulator (worker/server) holds the **master FD**, while the child process connects its `stdin`, `stdout`, and `stderr` to the **slave FD**. The child process believes it is attached to a real hardware teletype terminal (`isatty(3) == 1`).
+- **Why It Matters:** Enables full interactive REPLs (Python interactive prompt, Bash, GDB, Node REPL) and full-screen TUI programs (vim, htop) to run seamlessly inside remote sandboxes.
+- **Where It Is Used in This Project:** Built in [`worker/sandbox/pty_session.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/pty_session.py) using `pty.openpty()`.
+- **Real-World Examples:** SSH daemon (`sshd`), `tmux`, `screen`, Docker exec (`docker exec -it`), Visual Studio Code integrated terminal.
+- **Master's Interview Explanation:** "Standard UNIX pipes provide half-duplex stream buffering without terminal discipline. A PTY is a bidirectional IPC channel implemented as a pair of virtual character devices. The master endpoint acts as the display server and keyboard driver, while the slave endpoint implements the POSIX line discipline (`termios`). Subprocesses spawned on the slave endpoint perceive an interactive TTY, allowing runtime libraries like libc and Python's readline to activate unbuffered interactive sessions."
+
+### 14.2 Termios Line Discipline, Raw Mode vs. Cooked Mode, and ONLCR Translation
+- **Concept Learned:** Kernel-level terminal line discipline manipulation via `termios`.
+- **Simple Explanation:** In **cooked (canonical) mode**, the kernel line discipline buffers input line-by-line until the user presses Enter, handling backspace and line editing in the kernel. In **raw mode**, keystrokes are passed immediately to the program byte-by-byte as they are typed. Furthermore, UNIX systems use `\n` for newlines while physical terminals require `\r\n` (Carriage Return + Line Feed). The `ONLCR` output flag configures the slave terminal to automatically map `\n` to `\r\n`.
+- **Why It Matters:** Without `ONLCR`, terminal output exhibits the "staircase effect" where each line prints further to the right without returning to the first column. Without raw mode capture on the client, interactive auto-completion and arrow-key navigation cannot function.
+- **Where It Is Used in This Project:** Configured in [`worker/sandbox/pty_session.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/pty_session.py) via `termios.tcgetattr` and `termios.tcsetattr`.
+- **Real-World Examples:** Linux serial console drivers, `stty raw -echo`, SSH client terminal negotiation.
+
+### 14.3 Terminal Geometry, Dynamic Resizing & SIGWINCH Signal Handling
+- **Concept Learned:** Terminal viewport synchronization using `TIOCSWINSZ` ioctl and `SIGWINCH` kernel signals.
+- **Simple Explanation:** The master terminal and child process must agree on columns (width) and rows (height). When a user resizes their browser window or changes font size, `xterm.js` emits a resize event. The backend forwards `{type: "resize", cols: N, rows: M}` through WebSocket and Redis to the worker. The worker packs dimensions into `struct winsize { unsigned short ws_row, ws_col, ws_xpixel, ws_ypixel; }` via `struct.pack("HHHH", ...)` and issues `fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)`. The kernel then delivers `SIGWINCH` (Window Size Changed) to the child process group.
+- **Why It Matters:** Prevents text truncation, incorrect line wrapping, and broken TUI layouts during browser resizing.
+- **Where It Is Used in This Project:** Handled in [`worker/sandbox/pty_session.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/pty_session.py), [`frontend/src/components/TerminalView.tsx`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/frontend/src/components/TerminalView.tsx), and [`worker/tasks/execution.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/tasks/execution.py).
+- **Real-World Examples:** Remote desktop clients, WebTTY implementations (Wetty, ttyd), Kubernetes `kubectl exec -it`.
+
+### 14.4 OS Signals, Session Process Groups & SIGINT Keystroke Interception
+- **Concept Learned:** Out-of-band asynchronous event delivery (`SIGINT`, `SIGTERM`, `SIGKILL`) across network boundaries.
+- **Simple Explanation:** When a user types `Ctrl+C` in a physical terminal, the line discipline translates byte `\x03` into a `SIGINT` signal directed to the foreground process group. Over a network WebSocket connection, this must be captured on the frontend, transmitted as a structured frame (`{"type": "signal", "signal": "SIGINT"}`), and dispatched via `os.kill(child_pid, signal.SIGINT)` in the execution sandbox.
+- **Why It Matters:** Prevents long-running or runaway interactive scripts (e.g., infinite loops) from permanently blocking the interactive terminal session.
+- **Where It Is Used in This Project:** Dispatched in [`worker/sandbox/pty_session.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/sandbox/pty_session.py) and triggered by both keyboard (`Ctrl+C` / `\x03`) and UI interrupt button in [`frontend/src/components/TerminalView.tsx`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/frontend/src/components/TerminalView.tsx).
+- **Real-World Examples:** POSIX signal architecture, Docker stop/kill signal propagation, Kubernetes termination grace period.
+
+### 14.5 Full-Duplex Multiplexing via Bidirectional WebSocket & Distributed Redis Pub/Sub Backplane
+- **Concept Learned:** Decoupling multi-replica web gateways from stateless execution workers via dual pub/sub event channels.
+- **Simple Explanation:** Rather than tying a browser WebSocket directly to a specific worker process socket (which breaks horizontal scaling and load balancing), the architecture separates communication into two asynchronous channels:
+  1. **Downstream Channel (`rce:stream:<id>`):** Transmits standard output, errors, and lifecycle events from worker to browser.
+  2. **Upstream Channel (`rce:input:<id>`):** Transmits keystrokes, resize commands, and signals from browser to worker.
+- **Why It Matters:** Any FastAPI replica can receive the client WebSocket, while any Celery worker node can execute the code container. Redis acts as a high-performance in-memory backplane with sub-millisecond dispatch latency.
+- **Where It Is Used in This Project:** Orchestrated in [`backend/app/api/v1/endpoints/websocket.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/app/api/v1/endpoints/websocket.py) and [`worker/tasks/execution.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/worker/tasks/execution.py).
+- **Real-World Examples:** Enterprise message backplanes (Redis, Kafka, NATS), cloud IDE architectures (GitHub Codespaces, Gitpod, AWS Cloud9).
+
+
 
 
 

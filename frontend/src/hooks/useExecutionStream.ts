@@ -145,6 +145,24 @@ export function useExecutionStream(options: UseExecutionStreamOptions = {}) {
     };
   }, [disconnect]);
 
+  const sendInput = useCallback((data: string) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'stdin', data }));
+    }
+  }, []);
+
+  const sendResize = useCallback((cols: number, rows: number) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'resize', cols, rows }));
+    }
+  }, []);
+
+  const sendSignal = useCallback((sig: string = 'SIGINT') => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'signal', signal: sig }));
+    }
+  }, []);
+
   return {
     state,
     submissionId,
@@ -155,5 +173,8 @@ export function useExecutionStream(options: UseExecutionStreamOptions = {}) {
     isStreaming: state === 'STREAMING' || state === 'CONNECTING',
     connect: connectToStream,
     disconnect,
+    sendInput,
+    sendResize,
+    sendSignal,
   };
 }

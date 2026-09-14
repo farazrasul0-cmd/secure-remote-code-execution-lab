@@ -35,17 +35,16 @@ async def websocket_stream_submission(
 
     await websocket.accept()
     sub_id_str = str(submission_id)
-    channel_name = f"rce:stream:{sub_id_str}"
+    stream_channel = f"rce:stream:{sub_id_str}"
+    input_channel = f"rce:input:{sub_id_str}"
     buffer_key = f"rce:buffer:{sub_id_str}"
 
     redis_client = Redis.from_url(settings.REDIS_URL, decode_responses=True)
     pubsub = redis_client.pubsub()
 
-    try:
-        # 2. Subscribe to the submission's Pub/Sub channel
-        await pubsub.subscribe(channel_name)
-
-        # 3. Flush any pre-buffered frames (catch-up replay for late connects)
+    async def downstream_pump():
+        """Pipes execution stream chunks from Redis to WebSocket."""
+        # 1. Flush any pre-buffered frames (catch-up replay)
         buffered_frames = await redis_client.lrange(buffer_key, 0, -1)
         last_seq = -1
         for frame_str in buffered_frames:
@@ -58,11 +57,10 @@ async def websocket_stream_submission(
             except Exception:
                 await websocket.send_text(frame_str)
 
-        # 4. Stream live frames from Pub/Sub to WebSocket
+        # 2. Live stream from Redis Pub/Sub channel
         while True:
-            # Poll for Redis pub/sub messages with a short timeout
             message = await pubsub.get_message(
-                ignore_subscribe_messages=True, timeout=1.0
+                ignore_subscribe_messages=True, timeout=0.5
             )
             if message and message.get("type") == "message":
                 data_str = message.get("data")
@@ -70,35 +68,63 @@ async def websocket_stream_submission(
                     try:
                         frame_data = json.loads(data_str)
                         seq = frame_data.get("sequence", 0)
-                        # Avoid duplicates if already flushed from buffer
                         if seq > last_seq:
                             await websocket.send_text(data_str)
                             last_seq = seq
 
-                        # If execution completed, send and exit loop
                         if frame_data.get("event") in ["complete", "error"]:
-                            # Allow client brief time to receive final frame
                             await asyncio.sleep(0.1)
                             break
                     except Exception:
                         await websocket.send_text(data_str)
 
-            # Check if WebSocket is still open by checking connection state
             if websocket.client_state.name != "CONNECTED":
                 break
-
             await asyncio.sleep(0.01)
 
+    async def upstream_pump():
+        """Reads user inputs, resize commands, and signals from WebSocket and forwards to Redis."""
+        while True:
+            try:
+                raw_text = await websocket.receive_text()
+                if not raw_text:
+                    continue
+
+                try:
+                    frame = json.loads(raw_text)
+                    frame_type = frame.get("type")
+                    if frame_type in ["stdin", "resize", "signal"]:
+                        await redis_client.publish(input_channel, raw_text)
+                except json.JSONDecodeError:
+                    # If raw text received, wrap into stdin frame
+                    frame = {"type": "stdin", "data": raw_text}
+                    await redis_client.publish(input_channel, json.dumps(frame))
+            except WebSocketDisconnect:
+                break
+            except Exception as exc:
+                logger.debug("Upstream reader closed for %s: %s", sub_id_str, exc)
+                break
+
+    try:
+        await pubsub.subscribe(stream_channel)
+        # Concurrently execute downstream and upstream pumps
+        done, pending = await asyncio.wait(
+            [
+                asyncio.create_task(downstream_pump()),
+                asyncio.create_task(upstream_pump()),
+            ],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
     except WebSocketDisconnect:
         logger.info("Client disconnected from submission stream %s", sub_id_str)
     except Exception as exc:
         logger.error("Error in WebSocket streaming session %s: %s", sub_id_str, exc)
     finally:
-        try:
-            await pubsub.unsubscribe(channel_name)
+        with contextlib.suppress(Exception):
+            await pubsub.unsubscribe(stream_channel)
             await pubsub.aclose()
             await redis_client.aclose()
-        except Exception:
-            pass
         with contextlib.suppress(Exception):
             await websocket.close()
