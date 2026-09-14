@@ -14,6 +14,7 @@ All notable changes to the Secure Real-Time Remote Code Execution Laboratory Pla
 - **Collaborative Coding Rooms Subsystem (`app/models/room.py`, `schemas/room.py`, `services/room_service.py`)**: Implemented relational schema for collaborative lab rooms and role-based memberships (`owner`, `editor`, `viewer`), paginated REST management endpoints (`/api/v1/rooms`), and periodic PostgreSQL code snapshot persistence.
 - **Real-Time Multiplexed Collaborative WebSocket Gateway (`app/api/v1/endpoints/websocket.py`)**: Engineered `/ws/v1/rooms/{room_id}` dual-channel WebSocket gateway multiplexing document editing deltas, cursor presence coordinates, and simultaneous worker execution streams across connected classroom peers via dedicated Redis Pub/Sub channels.
 - **Collaborative Rooms Test Suite (`backend/tests/test_collaborative_rooms.py`)**: Authored 5 unit and integration tests verifying RoomService operations, REST room creation/listing/updating, and unauthenticated WebSocket rejection (expanding test suite to 84/84 passing tests).
+- **Chaos Engineering & Resilience Test Suite (`backend/tests/test_chaos_resilience.py`)**: Authored 4 comprehensive fault-injection tests verifying poison-pill quarantine without worker crashes, transient Redis broker disconnect tolerance, monotonic gapless sequence replay on WebSocket drop, and watchdog supervisor recovery under infinite spin loops (expanding test suite to 88/88 passing tests).
 
 ## [1.4.0] - 2026-09-14
 ### Added

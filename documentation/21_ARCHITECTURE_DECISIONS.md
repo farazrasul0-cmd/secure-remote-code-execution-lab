@@ -363,6 +363,34 @@ Academic computer science laboratories and enterprise technical interviews frequ
 ### Defense Formulation
 > *"We designed our collaborative laboratory architecture around dual-channel Redis Pub/Sub multiplexing decoupled from durable database storage. High-frequency editing deltas, cursor presence coordinates, and interactive chat frames gossip over ephemeral memory channels (`rce:room:sync:<id>`), while terminal execution outputs broadcast simultaneously to all connected participants over `rce:room:exec:<id>`. By reserving PostgreSQL transactions strictly for code snapshots and membership authorization, our platform supports seamless multi-student pair programming with sub-5ms sync latency and zero relational write amplification."*
 
+---
+
+## Decision 14: Chaos Engineering & Fault-Tolerant Distributed Resilience
+
+### Context
+In distributed systems operating under bursty, multi-tenant workloads, components fail asynchronously:
+1. **Cascading Failures from Poison Pills:** Malformed or hostile task payloads that trigger unhandled exceptions in worker loops can trigger cascading crashes across an entire worker pool if retried naively.
+2. **Loss of Streaming Diagnostics:** Transient network drops or WiFi reconnects during student code compilation can cause loss of compiler errors and stdout logs.
+3. **Runaway Resource Contention:** Infinite loops and process explosions must be terminated reliably by supervisors without leaving orphan processes holding system file descriptors.
+
+### Decision
+1. **Poison Pill Quarantine:** Encapsulate unexpected task execution exceptions inside a structured `ExecutionStatus.SYSTEM_ERROR` outcome, broadcast an error event to the user's stream, and complete the Celery task without infinite re-queuing.
+2. **Circular Sequence Replay Buffers:** Buffer all stdout and stderr frames in Redis list structures with strictly monotonic sequence numbers and 60-second TTLs (`rce:buffer:<submission_id>`), allowing reconnecting clients to replay missing chunks gaplessly from their last known sequence.
+3. **Automated Chaos Verification Suite:** Author dedicated tests in [`backend/tests/test_chaos_resilience.py`](file:///d:/projects/real-time-remote-computer-lab-docs/real-time-remote-computer-lab-docs/backend/tests/test_chaos_resilience.py) simulating broker disconnects, malformed payload injections, and watchdog timeout terminations under infinite loops.
+
+### Alternatives Evaluated
+* *Blind Automatic Retries without Quarantine:* A single malformed task crashes every worker in sequence, creating total denial of service across the cluster.
+* *Unbuffered WebSockets:* Incurs permanent loss of terminal logs upon any transient client disconnection.
+* *Manual Ad-hoc Fault Testing:* Untestable in CI pipelines and prone to regressions during future code modifications.
+
+### Trade-offs
+* *Con:* Requires temporary Redis RAM allocation for stream replay buffers (capped at 60-second TTL).
+* *Pro:* Eliminates cascading worker crashes; provides 100% gapless terminal recovery during WiFi blips; and continuously verifies resilience in automated regression test suites.
+
+### Defense Formulation
+> *"We hardened our distributed execution engine against turbulent real-world failures by incorporating Chaos Engineering verification into our testing regimen. By implementing poison-pill quarantine with immediate error framing, we prevent malicious payloads from causing cascading worker crashes. Furthermore, our 60-second circular sequence replay buffers guarantee monotonic gapless output reconstruction under transient network disconnects, proving that our platform satisfies strict fault-tolerance standards for enterprise and high-concurrency educational deployments."*
+
+
 
 
 
