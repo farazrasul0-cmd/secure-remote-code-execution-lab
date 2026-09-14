@@ -145,3 +145,17 @@ autoscaling:
 # -- Network Policies --------------------------------------------------------
 networkPolicies:
   enabled: true
+
+# -- Disaster Recovery & Automated Backups ------------------------------------
+backup:
+  enabled: true
+  schedule: "0 2 * * *" # Daily at 02:00 UTC
+  storageSize: "20Gi"
+
+# -- Secret Management & Key Vault -------------------------------------------
+secretManagement:
+  provider: kubernetes # 'kubernetes' (default Secret) or 'vault' (HashiCorp Vault)
+  vault:
+    enabled: false
+    address: "http://vault.vault.svc:8200"
+    role: "rce-backend-role"
