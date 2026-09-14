@@ -1,0 +1,59 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
+# -- PrometheusRule Declarative Alerting Engine ----------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "rce-platform.fullname" . }}-alerts
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "rce-platform.labels" . | nindent 4 }}
+    role: alert-rules
+spec:
+  groups:
+    - name: rce-platform-critical-alerts
+      rules:
+        # 1. Alert on High Celery Worker Queue Lag
+        - alert: RCEWorkerQueueDepthSaturated
+          expr: rce_worker_queue_depth > 20
+          for: 2m
+          labels:
+            severity: critical
+            tier: compute
+          annotations:
+            summary: "RCE execution queue depth exceeded critical threshold (>20)"
+            description: "Celery worker queue depth has remained above 20 tasks for >2 minutes. Current depth: {{ $value }}. Immediate worker pod scale-up required."
+            runbook_url: "https://github.com/farazrasul0-cmd/secure-remote-code-execution-lab/blob/main/documentation/18_DEPLOYMENT_ARCHITECTURE.md"
+
+        # 2. Alert on Elevated HTTP 5xx Server Error Rate
+        - alert: RCEApiHighErrorRate
+          expr: (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))) * 100 > 5
+          for: 3m
+          labels:
+            severity: critical
+            tier: api
+          annotations:
+            summary: "RCE API HTTP 5xx error rate exceeded 5%"
+            description: "More than 5% of API requests are returning 5xx server errors over the last 5 minutes. Current rate: {{ $value }}%."
+
+        # 3. Alert on PostgreSQL Database Connection Saturation
+        - alert: RCEPostgresConnectionSaturation
+          expr: pg_stat_activity_count / pg_settings_max_connections * 100 > 85
+          for: 5m
+          labels:
+            severity: warning
+            tier: database
+          annotations:
+            summary: "PostgreSQL active connections approaching pool exhaustion (>85%)"
+            description: "PostgreSQL active connection count has exceeded 85% of max_connections for 5 minutes."
+
+        # 4. Alert on Sandbox OOM Killer Events
+        - alert: RCESandboxOOMSpike
+          expr: rate(container_oom_events_total{namespace="{{ .Values.global.namespace }}"}[5m]) > 0.5
+          for: 2m
+          labels:
+            severity: warning
+            tier: sandbox
+          annotations:
+            summary: "Elevated OOM kill rate in code execution sandbox namespace"
+            description: "Linux kernel OOM killer is frequently terminating sandbox tasks. Investigate potential memory bomb attacks."
+{{- end }}

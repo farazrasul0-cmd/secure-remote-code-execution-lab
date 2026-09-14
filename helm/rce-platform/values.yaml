@@ -159,3 +159,8 @@ secretManagement:
     enabled: false
     address: "http://vault.vault.svc:8200"
     role: "rce-backend-role"
+
+# -- Production Monitoring & Alerting (Prometheus Operator) -------------------
+monitoring:
+  prometheusRule:
+    enabled: true
