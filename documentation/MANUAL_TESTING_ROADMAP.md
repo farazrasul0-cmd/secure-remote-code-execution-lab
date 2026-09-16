@@ -27,19 +27,19 @@ Use this matrix to track your verification progress:
 
 | Phase | Subsystem Under Test | Status | Date Verified | Blocking Issues Encountered | Resolution / Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Phase 0** | Host Environment & Prerequisites | ⏳ Pending | | | |
-| **Phase A** | Infrastructure (Docker, Postgres, Redis) | ⏳ Pending | | | |
-| **Phase B** | Database Migrations & Schemas | ⏳ Pending | | | |
-| **Phase C** | Backend API Gateway & REST Auth | ⏳ Pending | | | |
-| **Phase D** | Celery Worker Fleet & Queue Pipeline | ⏳ Pending | | | |
-| **Phase E** | Sandbox Execution & Adversarial Containment | ⏳ Pending | | | |
-| **Phase F** | Frontend Web IDE & Monaco Editor | ⏳ Pending | | | |
-| **Phase G** | WebSocket Live Output Streaming | ⏳ Pending | | | |
-| **Phase H** | Interactive PTY Pseudo-Terminal | ⏳ Pending | | | |
-| **Phase I** | Algorithmic Problem Autograding | ⏳ Pending | | | |
-| **Phase J** | Collaborative Multi-User Rooms | ⏳ Pending | | | |
-| **Phase K** | Observability, Metrics & Distributed Tracing | ⏳ Pending | | | |
-| **Phase L** | Production Kubernetes Deployment & Helm Validation | ⏳ Pending | | | |
+| **Phase 0** | Host Environment & Prerequisites | ✅ Passed | 2026-09-16 | Port 5173 occupied | Terminated stale process, verified Docker Desktop cgroups v2 |
+| **Phase A** | Infrastructure (Docker, Postgres, Redis) | ✅ Passed | 2026-09-16 | None | Containers healthy on ports 5432 & 6379, PING PONG verified |
+| **Phase B** | Database Migrations & Schemas | ✅ Passed | 2026-09-16 | Migration 003 syntax / duplicate types | Added IF NOT EXISTS guards in enum migrations, all 7 tables active |
+| **Phase C** | Backend API Gateway & REST Auth | ✅ Passed | 2026-09-16 | None | Health check, JWT auth, and language registry verified on port 8001 |
+| **Phase D** | Celery Worker Fleet & Queue Pipeline | ✅ Passed | 2026-09-16 | Worker result persistence in DB | Built `lab-sandbox-python:3.11`, implemented `_persist_submission_result` |
+| **Phase E** | Sandbox Execution & Adversarial Containment | ✅ Passed | 2026-09-16 | Seccomp init syscalls on runc | Hardened fallback seccomp, netns air-gap, 5s timeout & 128MB OOM verified |
+| **Phase F** | Frontend Web IDE & Monaco Editor | ✅ Passed | 2026-09-16 | Vite reverse proxy 404s | Configured `/api` and `/ws` reverse proxy in `vite.config.ts` |
+| **Phase G** | WebSocket Live Output Streaming | ✅ Passed | 2026-09-16 | None | Chunked streaming at ~400ms tick interval verified over WebSockets |
+| **Phase H** | Interactive PTY Pseudo-Terminal | ✅ Passed | 2026-09-16 | Docker logs line-buffering without newline | Enabled `tty=True` and duplex `attach_socket`, verified `input()` & `SIGINT` |
+| **Phase I** | Algorithmic Problem Autograding | ✅ Passed | 2026-09-16 | None | Two Sum & Palindrome evaluated 100/100, hidden test cases redacted |
+| **Phase J** | Collaborative Multi-User Rooms | ✅ Passed | 2026-09-16 | None | Dual-client presence, code delta sync, cursor move, and run broadcast verified |
+| **Phase K** | Observability, Metrics & Distributed Tracing | ✅ Passed | 2026-09-16 | None | Prometheus `/metrics` scraped; W3C `traceparent` verified across 4 tests |
+| **Phase L** | Production Kubernetes Deployment & Helm Validation | ✅ Passed | 2026-09-16 | Unescaped Prometheus template in Helm | Escaped `{{ $value }}`, `helm lint` 0 errors, Restricted contexts, 88/88 tests passed |
 
 ---
 

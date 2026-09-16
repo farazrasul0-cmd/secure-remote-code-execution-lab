@@ -21,7 +21,7 @@ spec:
             tier: compute
           annotations:
             summary: "RCE execution queue depth exceeded critical threshold (>20)"
-            description: "Celery worker queue depth has remained above 20 tasks for >2 minutes. Current depth: {{ $value }}. Immediate worker pod scale-up required."
+            description: 'Celery worker queue depth has remained above 20 tasks for >2 minutes. Current depth: {{ "{{ $value }}" }}. Immediate worker pod scale-up required.'
             runbook_url: "https://github.com/farazrasul0-cmd/secure-remote-code-execution-lab/blob/main/documentation/18_DEPLOYMENT_ARCHITECTURE.md"
 
         # 2. Alert on Elevated HTTP 5xx Server Error Rate
@@ -33,7 +33,7 @@ spec:
             tier: api
           annotations:
             summary: "RCE API HTTP 5xx error rate exceeded 5%"
-            description: "More than 5% of API requests are returning 5xx server errors over the last 5 minutes. Current rate: {{ $value }}%."
+            description: 'More than 5% of API requests are returning 5xx server errors over the last 5 minutes. Current rate: {{ "{{ $value }}" }}%.'
 
         # 3. Alert on PostgreSQL Database Connection Saturation
         - alert: RCEPostgresConnectionSaturation
