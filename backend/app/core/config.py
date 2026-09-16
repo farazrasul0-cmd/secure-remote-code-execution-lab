@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # Server Networking
     BACKEND_HOST: str = "0.0.0.0"
-    BACKEND_PORT: int = 8000
+    BACKEND_PORT: int = 8001
     ALLOWED_HOSTS: list[str] = ["*"]
     CORS_ORIGINS: list[str | AnyHttpUrl] = [
         "http://localhost:3000",

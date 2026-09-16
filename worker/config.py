@@ -15,6 +15,9 @@ class WorkerSettings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # Database Configuration (PostgreSQL Async)
+    DATABASE_URL: str = "postgresql+asyncpg://lab_admin:dev_secret_password@localhost:5432/remote_lab_db"
+
     # Queue Names & Channel Prefixes
     QUEUE_NAME: str = "rce:submissions"
     STREAM_CHANNEL_PREFIX: str = "rce:stream:"

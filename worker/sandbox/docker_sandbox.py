@@ -4,6 +4,8 @@ import asyncio
 import contextlib
 import json
 import os
+import queue
+import threading
 import time
 from collections.abc import AsyncGenerator
 
@@ -27,9 +29,39 @@ class DockerSandbox(BaseSandbox):
     def __init__(self, seccomp_profile_path: str | None = None):
         self.client = docker.from_env()
         self.seccomp_profile = None
+        self.active_container = None
+        self.stdin_socket = None
         if seccomp_profile_path and os.path.exists(seccomp_profile_path):
             with open(seccomp_profile_path, encoding="utf-8") as f:
                 self.seccomp_profile = json.load(f)
+
+    def write_stdin(self, data: str | bytes) -> None:
+        """Inject interactive user input into active container stdin socket."""
+        if self.stdin_socket:
+            try:
+                data_bytes = data.encode("utf-8") if isinstance(data, str) else data
+                if hasattr(self.stdin_socket, "_sock"):
+                    self.stdin_socket._sock.sendall(data_bytes)
+                else:
+                    self.stdin_socket.sendall(data_bytes)
+            except Exception as e:
+                import logging
+                logging.getLogger("rce_worker.sandbox").error("Failed to write to stdin_socket: %s", e)
+        else:
+            import logging
+            logging.getLogger("rce_worker.sandbox").warning("write_stdin called but stdin_socket is None!")
+
+    def send_signal(self, sig: int) -> bool:
+        """Deliver an operating system signal (e.g. SIGINT) to the active container process."""
+        if self.active_container:
+            try:
+                self.active_container.kill(signal=sig)
+                return True
+            except Exception as e:
+                import logging
+                logging.getLogger("rce_worker.sandbox").error("Failed to kill container with signal %s: %s", sig, e)
+                return False
+        return False
 
     async def execute(self, request: ExecutionRequest) -> ExecutionResult:
         """Execute request and accumulate stream into single result."""
@@ -72,11 +104,12 @@ class DockerSandbox(BaseSandbox):
         )
 
         try:
-            # Create isolated container
+            # Create isolated container with stdin and tty enabled for interactive PTY sessions
             container = self.client.containers.create(
                 image=f"lab-sandbox-{request.language}:3.11",
                 command=["python3", "-u", "-B", "-c", request.source_code],
-                stdin_open=bool(request.stdin_data),
+                stdin_open=True,
+                tty=True,
                 network_mode="none",
                 read_only=True,
                 tmpfs={"/tmp": "rw,noexec,nosuid,size=16m"},
@@ -91,49 +124,89 @@ class DockerSandbox(BaseSandbox):
                 labels={"sandbox_type": "isolated", "managed_by": "rce_worker"},
                 environment={"PYTHONUNBUFFERED": "1", "PYTHONDONTWRITEBYTECODE": "1"},
             )
+            self.active_container = container
 
-            # Start container
-            container.start()
+            # Attach full-duplex interactive stream socket (stdin, stdout, stderr)
+            self.stdin_socket = container.attach_socket(
+                params={"stdin": 1, "stdout": 1, "stderr": 1, "stream": 1}
+            )
 
-            # Pipe standard input if provided
+            # Start container with transient netns retry
+            for attempt in range(3):
+                try:
+                    container.start()
+                    break
+                except DockerException as start_err:
+                    if "netns" in str(start_err).lower() and attempt < 2:
+                        await asyncio.sleep(0.2)
+                        continue
+                    raise
+
+            # Pipe initial standard input if provided
             if request.stdin_data:
-                socket = container.attach_socket(params={"stdin": 1, "stream": 1})
-                socket._sock.sendall(request.stdin_data.encode("utf-8"))
-                socket.close()
+                self.write_stdin(request.stdin_data)
 
-            # Monitor execution with timeout watchdog
-            async def read_logs():
-                for log_chunk in container.logs(
-                    stdout=True, stderr=True, stream=True, follow=True
-                ):
-                    text_chunk = log_chunk.decode("utf-8", errors="replace")
+            # Monitor execution with nonblocking thread+queue log reader and timeout watchdog
+            log_queue: queue.Queue[bytes | None] = queue.Queue()
+            stop_reader = threading.Event()
+            raw_sock = self.stdin_socket._sock if hasattr(self.stdin_socket, "_sock") else self.stdin_socket
+
+            def log_worker():
+                try:
+                    while not stop_reader.is_set():
+                        chunk = raw_sock.recv(4096)
+                        if not chunk:
+                            break
+                        log_queue.put(chunk)
+                except Exception:
+                    pass
+                finally:
+                    log_queue.put(None)
+
+            reader_thread = threading.Thread(target=log_worker, daemon=True)
+            reader_thread.start()
+
+            # Poll queue and enforce timeout limit
+            while True:
+                elapsed = time.perf_counter() - start_time
+                if elapsed >= request.timeout_seconds:
+                    timed_out = True
+                    with contextlib.suppress(Exception):
+                        container.kill(signal="SIGKILL")
+                    stop_reader.set()
+                    break
+
+                # Drain available chunks
+                drained_any = False
+                while not log_queue.empty():
+                    item = log_queue.get_nowait()
+                    if item is None:
+                        break
+                    drained_any = True
+                    text_chunk = item.decode("utf-8", errors="replace")
                     chunk_obj = consumer.consume_stdout(text_chunk)
                     if chunk_obj:
                         yield chunk_obj
                     if consumer.limit_exceeded:
                         break
 
-            try:
-                async with asyncio.timeout(request.timeout_seconds):
-                    # In asyncio, wrap the blocking logs generator
-                    loop = asyncio.get_running_loop()
-                    log_stream = await loop.run_in_executor(
-                        None,
-                        lambda: container.logs(
-                            stdout=True, stderr=True, stream=True, follow=True
-                        ),
-                    )
-                    for log_chunk in log_stream:
-                        text_chunk = log_chunk.decode("utf-8", errors="replace")
-                        chunk_obj = consumer.consume_stdout(text_chunk)
-                        if chunk_obj:
-                            yield chunk_obj
-                        if consumer.limit_exceeded:
-                            break
-            except TimeoutError:
-                timed_out = True
+                if consumer.limit_exceeded:
+                    with contextlib.suppress(Exception):
+                        container.kill(signal="SIGKILL")
+                    stop_reader.set()
+                    break
+
+                # Check if container has exited cleanly
                 with contextlib.suppress(Exception):
-                    container.kill(signal="SIGKILL")
+                    container.reload()
+                    if not container.attrs.get("State", {}).get("Running", True) and log_queue.empty():
+                        break
+
+                await asyncio.sleep(0.05)
+
+            stop_reader.set()
+
+            if timed_out:
                 yield StreamChunk(
                     event=StreamEventType.ERROR,
                     data=f"\n[SYSTEM: Execution exceeded wall-clock timeout of {request.timeout_seconds}s.]",
@@ -176,6 +249,11 @@ class DockerSandbox(BaseSandbox):
                 data=f"[SYSTEM ERROR: Docker daemon failure: {str(dex)}]",
             )
         finally:
+            if self.stdin_socket:
+                with contextlib.suppress(Exception):
+                    self.stdin_socket.close()
+                self.stdin_socket = None
+            self.active_container = None
             if container:
                 with contextlib.suppress(Exception):
                     container.remove(force=True, v=True)
