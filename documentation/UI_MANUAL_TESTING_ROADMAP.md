@@ -115,7 +115,7 @@ PostgreSQL, Redis, FastAPI Backend, Vite Frontend.
 ### 2.4 Exact Manual Steps
 1. Navigate to `http://localhost:5173`.
 2. Look at the top right of the Navbar. Click the button labeled **"Sign In / Register"**.
-3. In the modal that appears, click the tab labeled **"Create Student Account"**.
+3. In the modal that appears, click the tab labeled **"Register"** (the modal title will change to **"Create Student Account"**).
 4. Enter new student credentials:
    - **Username:** `test_student_ui`
    - **Email:** `test_student_ui@university.edu`
@@ -134,7 +134,7 @@ PostgreSQL, Redis, FastAPI Backend, Vite Frontend.
 
 ### 2.5 Buttons / Actions Used
 - Button: `Sign In / Register` (Navbar)
-- Tab: `Sign In` / `Create Student Account` (Modal toggle)
+- Tab: `Sign In` / `Register` (Modal toggle)
 - Inputs: `Username`, `Email Address`, `Password`, `Confirm Password`
 - Button: `Create Account` / `Sign In` (Modal footer)
 - Button: `Sign Out` (Navbar user dropdown pill)
@@ -842,7 +842,7 @@ PostgreSQL, Redis, FastAPI Backend, Vite Frontend.
 2. Open **Window 2 (Incognito / Private Window)**:
    - Navigate to `http://localhost:5173`.
    - Log in as `student2` (`SecurePassword123!`).
-   *(If student2 is not yet registered, click "Create Student Account" and register `student2` / `student2@university.edu`).*
+   *(If student2 is not yet registered, click "Register" and register `student2` / `student2@university.edu`).*
 
 #### Step 12.B: Room Creation & Membership via API / UI
 1. In Window 1, open DevTools Console to inspect room creation:
