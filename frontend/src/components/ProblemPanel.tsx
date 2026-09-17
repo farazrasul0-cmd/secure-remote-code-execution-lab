@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Problem, ProblemDetail } from '../types';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface ProblemPanelProps {
   onSelectProblem?: (problem: ProblemDetail) => void;
@@ -20,14 +21,21 @@ export const ProblemPanel: React.FC<ProblemPanelProps> = ({
   onSubmitForGrading,
   isGrading,
 }) => {
+  const { isAuthenticated } = useAuth();
   const [problems, setProblems] = useState<Problem[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>('');
   const [problemDetail, setProblemDetail] = useState<ProblemDetail | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    loadProblems();
-  }, []);
+    if (isAuthenticated) {
+      loadProblems();
+    } else {
+      setProblems([]);
+      setProblemDetail(null);
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const loadProblems = async () => {
     try {

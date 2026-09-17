@@ -67,8 +67,6 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalRef.current);
-    fitAddon.fit();
-
     xtermInstance.current = term;
     fitAddonRef.current = fitAddon;
 
@@ -89,17 +87,24 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
     term.writeln('\x1b[1;36m+----------------------------------------------------------+\x1b[0m');
     term.writeln('\x1b[90mFull-duplex interactive terminal ready. Type inputs or press Run.\x1b[0m\r\n');
 
-    // Initial resize notification
-    if (onResize) {
-      onResize(term.cols, term.rows);
-    }
+    // Safe deferred initial fit after DOM layout calculation
+    const animId = requestAnimationFrame(() => {
+      try {
+        if (terminalRef.current && terminalRef.current.clientWidth > 0 && terminalRef.current.clientHeight > 0) {
+          fitAddon.fit();
+          if (onResize) onResize(term.cols, term.rows);
+        }
+      } catch {}
+    });
 
     // ResizeObserver for dynamic fit
     const resizeObserver = new ResizeObserver(() => {
       try {
-        fitAddon.fit();
-        if (onResize && term) {
-          onResize(term.cols, term.rows);
+        if (terminalRef.current && terminalRef.current.clientWidth > 0 && terminalRef.current.clientHeight > 0) {
+          fitAddon.fit();
+          if (onResize && term) {
+            onResize(term.cols, term.rows);
+          }
         }
       } catch {
         // ignore resize race during DOM detachment
@@ -108,6 +113,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
     resizeObserver.observe(terminalRef.current);
 
     return () => {
+      cancelAnimationFrame(animId);
       resizeObserver.disconnect();
       term.dispose();
       xtermInstance.current = null;
