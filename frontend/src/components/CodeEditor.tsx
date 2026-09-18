@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { Play, RotateCcw, FileCode, SlidersHorizontal, Loader2, ChevronDown } from 'lucide-react';
 import { SupportedLanguage } from '../types';
+import { StdinDrawer } from './StdinDrawer';
 
 export const BOILERPLATES: Record<
   SupportedLanguage,
@@ -26,15 +27,11 @@ import time
 
 def main():
     print("=== Execution Environment Initialized ===")
-    print(f"Python: {sys.version.split()[0]} on Linux Sandbox")
-    
-    stdin_data = sys.stdin.read().strip()
-    if stdin_data:
-        print(f"Standard Input: {stdin_data}")
+    print(f"Python: {sys.version.split()[0]} on Linux Sandbox\\n")
         
-    print("\\nExecuting algorithmic computation...")
+    print("Executing algorithmic computation...")
     for step in range(1, 6):
-        print(f"-> [Worker Thread] Step {step}/5 processing telemetry...")
+        print(f"-> [Worker Thread] Step {step}/5 processing telemetry...", flush=True)
         time.sleep(0.1)
 
     print("\\n[SUCCESS] Computation pipeline completed.")
@@ -55,13 +52,11 @@ if __name__ == "__main__":
 #include <stdlib.h>
 
 int main(void) {
+    // Unbuffered stdout ensures real-time streaming output
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     printf("=== C17 Hardened Execution Environment ===\\n");
     printf("Compiled with: gcc -std=c17 -O2 -fstack-protector-strong\\n\\n");
-    
-    char buffer[256];
-    if (fgets(buffer, sizeof(buffer), stdin)) {
-        printf("Standard Input: %s", buffer);
-    }
     
     printf("Executing memory-efficient computation...\\n");
     int sum = 0;
@@ -86,16 +81,13 @@ int main(void) {
 #include <iostream>
 #include <vector>
 #include <numeric>
-#include <string>
 
 int main() {
+    std::ios_base::sync_with_stdio(false);
+    std::cout << std::unitbuf;
+
     std::cout << "=== C++20 Hardened Execution Environment ===" << std::endl;
     std::cout << "Compiled with: g++ -std=c++20 -O2 -fstack-protector-strong" << std::endl << std::endl;
-    
-    std::string input_line;
-    if (std::getline(std::cin, input_line) && !input_line.empty()) {
-        std::cout << "Standard Input: " << input_line << std::endl;
-    }
     
     std::vector<int> numbers(100);
     std::iota(numbers.begin(), numbers.end(), 1);
@@ -116,21 +108,13 @@ int main() {
     code: `// Secure Real-Time Remote Code Execution Lab
 // Language: Rust 2021 Edition (Memory-Safe Native Binary)
 
-use std::io::{self, Read};
-
 fn main() {
     println!("=== Rust Hardened Execution Environment ===");
-    println!("Compiled with: rustc -O --crate-type bin");
-    
-    let mut stdin_input = String::new();
-    if let Ok(_) = io::stdin().read_to_string(&mut stdin_input) {
-        if !stdin_input.trim().is_empty() {
-            println!("Standard Input: {}", stdin_input.trim());
-        }
-    }
+    println!("Compiled with: rustc -O --crate-type bin\\n");
     
     let numbers: Vec<i64> = (1..=100).collect();
     let sum: i64 = numbers.iter().sum();
+    println!("Vector elements: {}", numbers.len());
     println!("Calculated sum from vector: {}", sum);
     
     println!("\\n[SUCCESS] Rust memory-safe binary completed with exit code 0.");
@@ -148,22 +132,12 @@ fn main() {
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 )
 
 func main() {
 	fmt.Println("=== Go 1.22+ Hardened Execution Environment ===")
-	fmt.Println("Compiled with: go build -ldflags \"-s -w\"")
-
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		text := scanner.Text()
-		if len(text) > 0 {
-			fmt.Printf("Standard Input: %s\\n", text)
-		}
-	}
+	fmt.Println("Compiled with: go build -ldflags '-s -w'\\n")
 
 	sum := 0
 	for i := 1; i <= 100; i++ {
@@ -182,19 +156,10 @@ func main() {
     code: `// Secure Real-Time Remote Code Execution Lab
 // Language: JavaScript (Node.js 20 LTS, Bounded V8 Heap)
 
-const fs = require('fs');
-
 function main() {
     console.log("=== Node.js 20 Execution Environment ===");
-    console.log(\`Node.js: \${process.version} with 128MB V8 heap limit\`);
+    console.log(\`Node.js: \${process.version} with 128MB V8 heap limit\\n\`);
     
-    try {
-        const stdinData = fs.readFileSync(0, 'utf-8').trim();
-        if (stdinData) {
-            console.log("Standard Input:", stdinData);
-        }
-    } catch (_) {}
-
     const numbers = Array.from({ length: 100 }, (_, i) => i + 1);
     const sum = numbers.reduce((acc, curr) => acc + curr, 0);
     console.log("Calculated sum from array:", sum);
@@ -217,8 +182,12 @@ interface CodeEditorProps {
   onToggleStdin: () => void;
   isStdinOpen: boolean;
   hasStdinContent: boolean;
+  stdinValue?: string;
+  onStdinChange?: (val: string) => void;
   selectedLanguage: SupportedLanguage;
   onSelectLanguage: (lang: SupportedLanguage) => void;
+  peerCursor?: { email: string; line: number; column: number } | null;
+  onCursorChange?: (line: number, column: number) => void;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -229,19 +198,42 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onToggleStdin,
   isStdinOpen,
   hasStdinContent,
+  stdinValue,
+  onStdinChange,
   selectedLanguage,
   onSelectLanguage,
+  peerCursor,
+  onCursorChange,
 }) => {
   const editorRef = useRef<any>(null);
+  const onRunRef = useRef(onRun);
+  const isRunningRef = useRef(isRunning);
+  const onCursorChangeRef = useRef(onCursorChange);
+
+  React.useEffect(() => {
+    onRunRef.current = onRun;
+    isRunningRef.current = isRunning;
+    onCursorChangeRef.current = onCursorChange;
+  }, [onRun, isRunning, onCursorChange]);
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
 
-    // Register Ctrl+Enter or Cmd+Enter to execute code immediately
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-      if (!isRunning) {
-        onRun();
-      }
+    // Use addAction with explicit precondition so standard Enter is never overridden
+    editor.addAction({
+      id: 'run-code-action',
+      label: 'Run Code in Sandbox',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      precondition: 'editorTextFocus && !suggestWidgetVisible',
+      run: () => {
+        if (!isRunningRef.current) {
+          onRunRef.current();
+        }
+      },
+    });
+
+    editor.onDidChangeCursorPosition((e) => {
+      onCursorChangeRef.current?.(e.position.lineNumber, e.position.column);
     });
   };
 
@@ -291,6 +283,23 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Active Remote Peer Indicator */}
+          {peerCursor && (
+            <div
+              className="hidden md:flex items-center space-x-1.5 text-[11px] bg-sky-950/80 text-sky-300 px-2 py-1 rounded-md border border-sky-800/60 font-mono"
+              title={`Peer ${peerCursor.email} is editing at Line ${peerCursor.line}, Col ${peerCursor.column}`}
+            >
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sky-500"></span>
+              </span>
+              <span className="truncate max-w-[110px]">{peerCursor.email.split('@')[0]}</span>
+              <span className="opacity-70">
+                L{peerCursor.line}:C{peerCursor.column}
+              </span>
+            </div>
+          )}
+
           {/* Stdin Toggle */}
           <button
             onClick={onToggleStdin}
@@ -347,6 +356,15 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Embedded Stdin Drawer */}
+      <StdinDrawer
+        isOpen={isStdinOpen}
+        value={stdinValue || ''}
+        onChange={onStdinChange || (() => {})}
+        onClose={onToggleStdin}
+        disabled={isRunning}
+      />
 
       {/* Monaco Editor Container */}
       <div className="flex-1 min-h-[300px] relative">

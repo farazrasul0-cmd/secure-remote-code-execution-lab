@@ -15,7 +15,7 @@
 > 1. **Start from Phase 0.** Do not skip any phases or steps.
 > 2. **Run every command exactly as specified.** Pay close attention to which terminal tab to use and the working directory (`Cwd`).
 > 3. **Observe the expected output.** Compare your terminal output with the provided "What Success Looks Like" sections.
-> 4. **If an error occurs, STOP IMMEDIATELY.** Do not attempt subsequent steps with broken prerequisites. Copy the exact terminal error output and provide it to the debugging engineer (Codex).
+> 4. **If an error occurs, STOP IMMEDIATELY.** Do not attempt subsequent steps with broken prerequisites. Copy the exact terminal error output and provide it to the debugging engineer.
 > 5. **Fix the root cause completely.** Verify with the diagnosis commands in the phase before moving forward.
 > 6. **Mark the phase as Complete in the [Testing Status Tracking Table](#system-testing-status-tracking-table) and proceed.**
 

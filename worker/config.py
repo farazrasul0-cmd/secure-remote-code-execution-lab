@@ -30,7 +30,7 @@ class WorkerSettings(BaseSettings):
 
     # Container Sandbox Defaults
     SANDBOX_IMAGE_PYTHON: str = "lab-sandbox-python:3.11"
-    EXECUTION_TIMEOUT_SECONDS: int = 5
+    EXECUTION_TIMEOUT_SECONDS: int = 30
     SANDBOX_MEMORY_LIMIT: str = "128m"
     SANDBOX_CPU_QUOTA: int = 50000
     SANDBOX_MAX_PIDS: int = 64

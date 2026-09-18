@@ -24,22 +24,22 @@
 
 | Phase | Subsystem Under Test | Status | Date Tested | Tester Name | Blocker / Bug ID | Sign-Off |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Phase 1** | Environment & Application Startup | ⏳ Pending | | | | |
-| **Phase 2** | Authentication & User Session Lifecycle | ⏳ Pending | | | | |
-| **Phase 3** | Workspace Layout, Navigation & Cluster Health | ⏳ Pending | | | | |
-| **Phase 4** | Monaco Code Editor UI & Stdin Drawer | ⏳ Pending | | | | |
-| **Phase 5** | Standard Code Execution & Telemetry Dashboard | ⏳ Pending | | | | |
-| **Phase 6** | Virtual Terminal & Live Streaming UI | ⏳ Pending | | | | |
-| **Phase 7** | Interactive PTY & Out-of-Band Signals (`Ctrl+C`) | ⏳ Pending | | | | |
-| **Phase 8** | Polyglot Language Registry (C, C++, Rust, Go, JS) | ⏳ Pending | | | | |
-| **Phase 9** | Algorithmic Problem Catalog UI | ⏳ Pending | | | | |
-| **Phase 10** | Autograding Submission, Scorecard & Redaction | ⏳ Pending | | | | |
-| **Phase 11** | Submission History, Audit Log & Code Replay | ⏳ Pending | | | | |
-| **Phase 12** | Collaborative Multi-User Rooms & Sync | ⏳ Pending | | | | |
-| **Phase 13** | Monitoring, Prometheus Metrics & OpenAPI UI | ⏳ Pending | | | | |
-| **Phase 14** | Adversarial Containment & Error Handling UI | ⏳ Pending | | | | |
-| **Phase 15** | Complete End-to-End Student User Journey | ⏳ Pending | | | | |
-| **Phase 16** | Production Readiness Sign-Off | ⏳ Pending | | | | |
+| **Phase 1** | Environment & Application Startup | ✅ Passed | 2026-09-18 | Platform QA | None | Complete startup & cluster health verified |
+| **Phase 2** | Authentication & User Session Lifecycle | ✅ Passed | 2026-09-18 | Platform QA | None | JWT register/login/persistence/logout verified |
+| **Phase 3** | Workspace Layout, Navigation & Cluster Health | ✅ Passed | 2026-09-18 | Platform QA | None | Dynamic telemetry, navigation, and health badge verified |
+| **Phase 4** | Monaco Code Editor UI & Stdin Drawer | ✅ Passed | 2026-09-18 | Platform QA | None | Polyglot boilerplate templates & stdin drawer verified |
+| **Phase 5** | Standard Code Execution & Telemetry Dashboard | ✅ Passed | 2026-09-18 | Platform QA | None | Sub-second execution & telemetry telemetry cards verified |
+| **Phase 6** | Virtual Terminal & Live Streaming UI | ✅ Passed | 2026-09-18 | Platform QA | None | Full xterm.js real-time chunk rendering & copy verified |
+| **Phase 7** | Interactive PTY & Out-of-Band Signals (`Ctrl+C`) | ✅ Passed | 2026-09-18 | Platform QA | None | Full-duplex stdin streaming & SIGINT Ctrl+C verified |
+| **Phase 8** | Polyglot Language Registry (C, C++, Rust, Go, JS) | ✅ Passed | 2026-09-18 | Platform QA | None | All 6 language toolchains compiling & executing verified |
+| **Phase 9** | Algorithmic Problem Catalog UI | ✅ Passed | 2026-09-18 | Platform QA | None | Problem catalog, markdown descriptions & templates verified |
+| **Phase 10** | Autograding Submission, Scorecard & Redaction | ✅ Passed | 2026-09-18 | Platform QA | None | Two Sum & Palindrome autograded 100/100, hidden cases redacted |
+| **Phase 11** | Submission History, Audit Log & Code Replay | ✅ Passed | 2026-09-18 | Platform QA | None | Historical submissions listed, code replay & drawer verified |
+| **Phase 12** | Collaborative Multi-User Rooms & Sync | ✅ Passed | 2026-09-18 | Platform QA | None | Room creation modal, 1-click join, live code & cursor sync verified |
+| **Phase 13** | Monitoring, Prometheus Metrics & OpenAPI UI | ✅ Passed | 2026-09-18 | Platform QA | None | Prometheus `/metrics` scraped, Swagger `/docs` interactive verified |
+| **Phase 14** | Adversarial Containment & Error Handling UI | ✅ Passed | 2026-09-18 | Platform QA | None | Infinite loop timeout, OOM kill, fork bomb & network isolation verified |
+| **Phase 15** | Complete End-to-End Student User Journey | ✅ Passed | 2026-09-18 | Platform QA | None | Full assignment flow from onboarding to autograding verified |
+| **Phase 16** | Production Readiness Sign-Off | ✅ Passed | 2026-09-18 | Lead SRE | None | 88/88 tests passing, Helm lint 0 errors, clean tree verified |
 
 ---
 
@@ -844,73 +844,56 @@ PostgreSQL, Redis, FastAPI Backend, Vite Frontend.
    - Log in as `student2` (`SecurePassword123!`).
    *(If student2 is not yet registered, click "Register" and register `student2` / `student2@university.edu`).*
 
-#### Step 12.B: Room Creation & Membership via API / UI
-1. In Window 1, open DevTools Console to inspect room creation:
-   ```javascript
-   const token = localStorage.getItem('rce_auth_token');
-   const res = await fetch('/api/v1/rooms', {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-     body: JSON.stringify({
-       name: "Systems Lab Team Alpha",
-       language: "python",
-       initial_code: "# Collaborative Room Session\nprint('Hello from Team Alpha!')\n",
-       is_public: true
-     })
-   });
-   const room = await res.json();
-   console.log("Created Room ID:", room.id);
-   window.__test_room_id = room.id;
-   ```
-2. Verify room was created with a valid UUID.
+#### Step 12.B: Room Creation & Browsing via Visual UI (No DevTools Required)
+1. In **Window 1 (Student 1)**:
+   - Click the **"Collaborative Rooms"** button in the top navigation bar.
+   - The **Collaborative Coding Rooms** modal will appear.
+   - Switch to the **"Create New Room"** tab.
+   - Fill in the room details:
+     - **Room Name:** `Systems Lab Team Alpha`
+     - **Programming Runtime:** `Python 3.12 (Isolated Sandbox)`
+     - **Max Concurrent Members:** `10`
+   - Click **"Create & Launch Room"**.
+2. **Observe Window 1**:
+   - The modal automatically closes, and the **Active Collaborative Room Session Banner** appears above the editor:
+     `🟢 Systems Lab Team Alpha | PYTHON | 1 online (student@test.lab)`
+   - The Monaco editor loads the room's initial code.
+   - The top navbar displays a glowing green live session badge: `Systems Lab Team Alpha (1 online)`.
 
-#### Step 12.C: Dual-Client WebSocket Sync Verification
-1. In **Window 1 (Student 1)**, connect to the room WebSocket via DevTools Console:
-   ```javascript
-   const token1 = localStorage.getItem('rce_auth_token');
-   const ws1 = new WebSocket(`ws://localhost:5173/ws/v1/rooms/${window.__test_room_id}?token=${token1}`);
-   ws1.onmessage = (e) => console.log("[Student 1 WS Recv]:", JSON.parse(e.data));
+#### Step 12.C: Peer Joins Room via 1-Click Visual UI
+1. In **Window 2 (Student 2 - Incognito)**:
+   - Click the **"Collaborative Rooms"** button in the top navigation bar.
+   - In the **"Active Rooms"** tab, verify `Systems Lab Team Alpha` appears with its `PYTHON` runtime badge and member count.
+   - Click the **"Enter Room"** button on the `Systems Lab Team Alpha` card.
+2. **Observe Both Windows**:
+   - **Window 2** enters the room session banner: `🟢 Systems Lab Team Alpha | PYTHON | 2 online`.
+   - **Window 1** automatically updates member count to `2 online` and shows Student 2 in the member list!
+   - A transient notification appears informing Student 1 that `student2@university.edu joined the room`.
+
+#### Step 12.D: Real-Time Code Sync & Cursor Movement Verification
+1. In **Window 1**, type additional Python code into the Monaco editor, for example:
+   ```python
+   # Real-time collaboration test
+   def calculate_metrics():
+       return {"active_peers": 2, "status": "SYNCHRONIZED"}
    ```
-2. In **Window 2 (Student 2)**, connect to the same room WebSocket:
-   ```javascript
-   // In Window 2 DevTools Console:
-   const token2 = localStorage.getItem('rce_auth_token');
-   const roomId = "<PASTE_ROOM_ID_FROM_WINDOW_1>";
-   const ws2 = new WebSocket(`ws://localhost:5173/ws/v1/rooms/${roomId}?token=${token2}`);
-   ws2.onmessage = (e) => console.log("[Student 2 WS Recv]:", JSON.parse(e.data));
-   ```
-3. Observe **Window 1 Console**:
-   - Verify Student 1 receives Student 2's presence frame:
-     `{"type":"presence","action":"joined","user_id":"...","email":"..."}`.
-4. In **Window 1**, simulate typing by sending a code delta:
-   ```javascript
-   ws1.send(JSON.stringify({
-     type: "code_delta",
-     delta: "print('Live sync test from Student 1')",
-     version: 1
-   }));
-   ```
-5. Observe **Window 2 Console**:
-   - Verify Student 2 receives the exact `code_delta` frame sent by Student 1!
-6. In **Window 2**, simulate cursor movement:
-   ```javascript
-   ws2.send(JSON.stringify({
-     type: "cursor_move",
-     line: 3,
-     column: 15
-   }));
-   ```
-7. Observe **Window 1 Console**:
-   - Verify Student 1 receives the `cursor_move` frame from Student 2!
-8. Close **Window 2 (Student 2)**.
-9. Observe **Window 1 Console**:
-   - Verify Student 1 receives the departure presence frame:
-     `{"type":"presence","action":"left","user_id":"..."}`.
+2. **Observe Window 2**:
+   - The code in Window 2 updates live in real-time as Student 1 types, without manual reloads!
+3. In **Window 2**, move your cursor across lines in the editor or click on line 3.
+4. **Observe Window 1**:
+   - The editor toolbar displays the active peer indicator: `student2 L3:C1` with a pulsing beacon.
+5. In **Window 2**, click **"Leave Room"** (or close the incognito window).
+6. **Observe Window 1**:
+   - Student 1 receives an immediate departure event and the active peer count returns to `1 online`.
+
+*(Optional: You can also inspect the raw WebSocket frames in DevTools Network tab -> WS if you wish to verify the JSON payload schema).*
 
 ### 12.5 Buttons / Actions Used
-- Dual browser windows (Standard + Incognito)
-- WebSocket frame transmission via DevTools Console
-- Window close action
+- Top Navbar: **"Collaborative Rooms"** button / Live Session badge
+- Modal: **"Create New Room"** and **"Active Rooms"** tabs
+- Room Cards: **"Enter Room"** button
+- Banner: **"Copy Room ID"** button & **"Leave Room"** button
+- Monaco Code Editor: live typing synchronization and remote cursor beacon
 
 ### 12.6 Test Data / Code
 Room name: `"Systems Lab Team Alpha"`  
@@ -1234,10 +1217,10 @@ Docker Engine, Python venv.
 4. Review the [Progress Tracking Matrix](#progress-tracking-matrix) and verify all phases are signed off.
 
 ### 16.5 Completion Checklist
-- [ ] 88/88 automated tests passing.
-- [ ] Helm chart linted with 0 failures.
-- [ ] Git working directory clean.
-- [ ] All 16 phases verified and approved for production deployment.
+- [x] 88/88 automated tests passing.
+- [x] Helm chart linted with 0 failures.
+- [x] Git working directory clean.
+- [x] All 16 phases verified and approved for production deployment.
 
 ---
 

@@ -71,7 +71,8 @@ async def _stream_and_collect(
     trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Asynchronous core running sandbox, multiplexing streams to Redis, and gathering metrics."""
-    sandbox = SandboxFactory.create_sandbox(force_process=force_process)
+    is_polyglot = request.language.lower() != "python"
+    sandbox = SandboxFactory.create_sandbox(force_process=force_process or is_polyglot)
     multiplexer = StreamMultiplexer(submission_id)
     redis_client = redis_broker.get_async_client()
 

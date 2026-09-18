@@ -17,6 +17,9 @@ class SubmissionCreate(BaseModel):
     stdin_data: str | None = Field(
         default=None, max_length=1048576, description="Optional standard input"
     )
+    timeout_seconds: int | None = Field(
+        default=None, ge=1, le=120, description="Optional custom execution timeout (seconds)"
+    )
 
 
 class SubmissionResponse(BaseModel):

@@ -54,6 +54,7 @@ export interface SubmissionCreate {
   language?: string;
   source_code: string;
   stdin_data?: string | null;
+  timeout_seconds?: number | null;
 }
 
 export interface SubmissionListResponse {
@@ -149,5 +150,54 @@ export interface GradingScorecard {
   peak_memory_bytes: number;
   compile_error?: string | null;
   test_case_results: TestCaseResult[];
+}
+
+export interface CollaborativeRoom {
+  id: string;
+  name: string;
+  owner_id: string;
+  language: SupportedLanguage;
+  current_code: string;
+  is_active: boolean;
+  max_members: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoomCreatePayload {
+  name: string;
+  language: SupportedLanguage;
+  initial_code?: string;
+  max_members?: number;
+}
+
+export interface RoomListResponse {
+  items: CollaborativeRoom[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface RoomPresenceEvent {
+  type: 'presence';
+  action: 'joined' | 'left';
+  user_id: string;
+  email: string;
+}
+
+export interface RoomCodeDeltaEvent {
+  type: 'code_delta';
+  delta: string;
+  version?: number;
+  sender_id?: string;
+  sender_email?: string;
+}
+
+export interface RoomCursorMoveEvent {
+  type: 'cursor_move';
+  line: number;
+  column: number;
+  sender_id?: string;
+  sender_email?: string;
 }
 

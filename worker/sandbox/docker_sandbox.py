@@ -39,7 +39,9 @@ class DockerSandbox(BaseSandbox):
         """Inject interactive user input into active container stdin socket."""
         if self.stdin_socket:
             try:
-                data_bytes = data.encode("utf-8") if isinstance(data, str) else data
+                data_str = data.decode("utf-8", errors="replace") if isinstance(data, bytes) else data
+                data_str = data_str.replace("\r\n", "\n").replace("\r", "\n")
+                data_bytes = data_str.encode("utf-8")
                 if hasattr(self.stdin_socket, "_sock"):
                     self.stdin_socket._sock.sendall(data_bytes)
                 else:
@@ -65,6 +67,10 @@ class DockerSandbox(BaseSandbox):
 
     async def execute(self, request: ExecutionRequest) -> ExecutionResult:
         """Execute request and accumulate stream into single result."""
+        if request.language.lower() != "python":
+            from worker.sandbox.process_sandbox import ProcessSandbox
+            return await ProcessSandbox().execute(request)
+
         consumer = StreamConsumer(max_bytes=request.max_output_bytes)
         final_result = None
 
@@ -92,6 +98,15 @@ class DockerSandbox(BaseSandbox):
         container = None
         start_time = time.perf_counter()
         timed_out = False
+
+        # For polyglot languages without custom docker container, delegate to ProcessSandbox
+        if request.language.lower() != "python":
+            from worker.sandbox.process_sandbox import ProcessSandbox
+            fallback = ProcessSandbox()
+            self.active_container = None
+            async for chunk in fallback.stream_execute(request):
+                yield chunk
+            return
 
         # Prepare security and isolation options
         security_opt = ["no-new-privileges:true"]
@@ -144,7 +159,12 @@ class DockerSandbox(BaseSandbox):
 
             # Pipe initial standard input if provided
             if request.stdin_data:
-                self.write_stdin(request.stdin_data)
+                # Ensure input has terminal line break and append \x04 (EOT / Ctrl+D) to signal EOF to PTY
+                payload = request.stdin_data
+                if not payload.endswith("\n"):
+                    payload += "\n"
+                payload += "\x04"
+                self.write_stdin(payload)
 
             # Monitor execution with nonblocking thread+queue log reader and timeout watchdog
             log_queue: queue.Queue[bytes | None] = queue.Queue()
@@ -205,6 +225,16 @@ class DockerSandbox(BaseSandbox):
                 await asyncio.sleep(0.05)
 
             stop_reader.set()
+            with contextlib.suppress(Exception):
+                reader_thread.join(timeout=0.5)
+
+            while not log_queue.empty():
+                item = log_queue.get_nowait()
+                if item:
+                    text_chunk = item.decode("utf-8", errors="replace")
+                    chunk_obj = consumer.consume_stdout(text_chunk)
+                    if chunk_obj:
+                        yield chunk_obj
 
             if timed_out:
                 yield StreamChunk(

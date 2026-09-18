@@ -72,6 +72,14 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
 
     // Listen to user keyboard inputs for interactive PTY streaming
     term.onData((data) => {
+      // Echo locally for real-time visual feedback
+      if (data === '\r') {
+        term.write('\r\n');
+      } else if (data === '\x7f' || data === '\b') {
+        term.write('\b \b');
+      } else {
+        term.write(data);
+      }
       onData?.(data);
     });
 
@@ -140,6 +148,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
         term.write(`\x1b[31m${chunk.data}\x1b[0m`);
       } else if (chunk.type === 'system') {
         term.write(`\x1b[90m${chunk.data}\x1b[0m`);
+      } else if (chunk.type === 'status') {
+        term.write(`\x1b[36m${chunk.data}\x1b[0m\r\n`);
       } else {
         term.write(chunk.data);
       }

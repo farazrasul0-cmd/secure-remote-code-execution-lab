@@ -1,13 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Terminal, LogOut, LogIn, Activity } from 'lucide-react';
+import { Terminal, LogOut, LogIn, Activity, Users, LogOut as LeaveIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { CollaborativeRoom } from '../types';
 
 interface NavbarProps {
   onOpenAuth: () => void;
+  onOpenRooms: () => void;
+  activeRoom?: CollaborativeRoom | null;
+  activeMemberCount?: number;
+  onLeaveRoom?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  onOpenAuth,
+  onOpenRooms,
+  activeRoom,
+  activeMemberCount = 1,
+  onLeaveRoom,
+}) => {
   const { user, isAuthenticated, logout } = useAuth();
   const [clusterHealthy, setClusterHealthy] = useState<boolean | null>(null);
 
@@ -68,6 +79,47 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
               : 'Checking cluster...'}
           </span>
         </div>
+
+        {/* Collaborative Rooms Control */}
+        {activeRoom ? (
+          <div className="flex items-center space-x-2 bg-emerald-950/50 border border-emerald-500/50 rounded-lg px-2.5 py-1.5 shadow-sm shadow-emerald-900/20">
+            <button
+              onClick={onOpenRooms}
+              className="flex items-center space-x-2 text-xs text-emerald-300 hover:text-emerald-200 transition-colors"
+              title="View Room Details / Switch Room"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="font-semibold truncate max-w-[110px] sm:max-w-[150px]">
+                {activeRoom.name}
+              </span>
+              <span className="text-[10px] bg-emerald-900/80 px-1.5 py-0.5 rounded-full border border-emerald-700/60 font-mono">
+                {activeMemberCount} online
+              </span>
+            </button>
+            {onLeaveRoom && (
+              <button
+                onClick={onLeaveRoom}
+                title="Leave Room"
+                className="text-slate-400 hover:text-rose-400 p-0.5 rounded hover:bg-slate-800 transition-colors"
+              >
+                <LeaveIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={onOpenRooms}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 hover:border-slate-600 transition-all shadow-sm active:scale-95"
+            title="Browse or create collaborative rooms"
+          >
+            <Users className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden sm:inline">Collaborative Rooms</span>
+            <span className="sm:hidden">Rooms</span>
+          </button>
+        )}
 
         {/* User Authentication Display */}
         {isAuthenticated && user ? (

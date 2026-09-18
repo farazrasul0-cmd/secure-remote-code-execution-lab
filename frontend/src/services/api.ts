@@ -143,6 +143,35 @@ class ApiClient {
   async getGradingScorecard(submissionId: string): Promise<import('../types').GradingScorecard> {
     return this.request<import('../types').GradingScorecard>(`/api/v1/problems/submissions/${submissionId}/grading`);
   }
+
+  // Collaborative Rooms API
+  async listRooms(page: number = 1, pageSize: number = 20): Promise<import('../types').RoomListResponse> {
+    return this.request<import('../types').RoomListResponse>(`/api/v1/rooms?page=${page}&page_size=${pageSize}`);
+  }
+
+  async createRoom(payload: import('../types').RoomCreatePayload): Promise<import('../types').CollaborativeRoom> {
+    return this.request<import('../types').CollaborativeRoom>('/api/v1/rooms', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getRoom(roomId: string): Promise<import('../types').CollaborativeRoom> {
+    return this.request<import('../types').CollaborativeRoom>(`/api/v1/rooms/${roomId}`);
+  }
+
+  async joinRoom(roomId: string): Promise<any> {
+    return this.request(`/api/v1/rooms/${roomId}/join`, {
+      method: 'POST',
+    });
+  }
+
+  async updateRoomCode(roomId: string, current_code: string): Promise<import('../types').CollaborativeRoom> {
+    return this.request<import('../types').CollaborativeRoom>(`/api/v1/rooms/${roomId}/code`, {
+      method: 'PATCH',
+      body: JSON.stringify({ current_code }),
+    });
+  }
 }
 
 export const api = new ApiClient();

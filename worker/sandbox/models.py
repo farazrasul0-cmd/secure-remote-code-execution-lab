@@ -63,7 +63,7 @@ class ExecutionRequest(BaseModel):
     timeout_seconds: float = Field(
         default=5.0,
         ge=0.5,
-        le=15.0,
+        le=120.0,
         description="Wall-clock execution timeout in seconds",
     )
     memory_limit: str = Field(
