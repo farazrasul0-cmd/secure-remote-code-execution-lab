@@ -12,7 +12,7 @@ if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 
 from redis.asyncio import Redis
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.models.submission import Submission
@@ -75,9 +75,15 @@ async def _persist_submission_result(
             )
             await session.execute(stmt)
             await session.commit()
-            logger.info("Persisted database status '%s' for submission %s", status, submission_id)
+            logger.info(
+                "Persisted database status '%s' for submission %s",
+                status,
+                submission_id,
+            )
     except Exception as db_err:
-        logger.error("Failed to persist submission %s to database: %s", submission_id, db_err)
+        logger.error(
+            "Failed to persist submission %s to database: %s", submission_id, db_err
+        )
 
 
 class AsyncWorkerDaemon:

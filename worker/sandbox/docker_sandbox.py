@@ -39,7 +39,11 @@ class DockerSandbox(BaseSandbox):
         """Inject interactive user input into active container stdin socket."""
         if self.stdin_socket:
             try:
-                data_str = data.decode("utf-8", errors="replace") if isinstance(data, bytes) else data
+                data_str = (
+                    data.decode("utf-8", errors="replace")
+                    if isinstance(data, bytes)
+                    else data
+                )
                 data_str = data_str.replace("\r\n", "\n").replace("\r", "\n")
                 data_bytes = data_str.encode("utf-8")
                 if hasattr(self.stdin_socket, "_sock"):
@@ -48,10 +52,16 @@ class DockerSandbox(BaseSandbox):
                     self.stdin_socket.sendall(data_bytes)
             except Exception as e:
                 import logging
-                logging.getLogger("rce_worker.sandbox").error("Failed to write to stdin_socket: %s", e)
+
+                logging.getLogger("rce_worker.sandbox").error(
+                    "Failed to write to stdin_socket: %s", e
+                )
         else:
             import logging
-            logging.getLogger("rce_worker.sandbox").warning("write_stdin called but stdin_socket is None!")
+
+            logging.getLogger("rce_worker.sandbox").warning(
+                "write_stdin called but stdin_socket is None!"
+            )
 
     def send_signal(self, sig: int) -> bool:
         """Deliver an operating system signal (e.g. SIGINT) to the active container process."""
@@ -61,7 +71,10 @@ class DockerSandbox(BaseSandbox):
                 return True
             except Exception as e:
                 import logging
-                logging.getLogger("rce_worker.sandbox").error("Failed to kill container with signal %s: %s", sig, e)
+
+                logging.getLogger("rce_worker.sandbox").error(
+                    "Failed to kill container with signal %s: %s", sig, e
+                )
                 return False
         return False
 
@@ -69,6 +82,7 @@ class DockerSandbox(BaseSandbox):
         """Execute request and accumulate stream into single result."""
         if request.language.lower() != "python":
             from worker.sandbox.process_sandbox import ProcessSandbox
+
             return await ProcessSandbox().execute(request)
 
         consumer = StreamConsumer(max_bytes=request.max_output_bytes)
@@ -102,6 +116,7 @@ class DockerSandbox(BaseSandbox):
         # For polyglot languages without custom docker container, delegate to ProcessSandbox
         if request.language.lower() != "python":
             from worker.sandbox.process_sandbox import ProcessSandbox
+
             fallback = ProcessSandbox()
             self.active_container = None
             async for chunk in fallback.stream_execute(request):
@@ -169,7 +184,11 @@ class DockerSandbox(BaseSandbox):
             # Monitor execution with nonblocking thread+queue log reader and timeout watchdog
             log_queue: queue.Queue[bytes | None] = queue.Queue()
             stop_reader = threading.Event()
-            raw_sock = self.stdin_socket._sock if hasattr(self.stdin_socket, "_sock") else self.stdin_socket
+            raw_sock = (
+                self.stdin_socket._sock
+                if hasattr(self.stdin_socket, "_sock")
+                else self.stdin_socket
+            )
 
             def log_worker():
                 try:
@@ -197,12 +216,10 @@ class DockerSandbox(BaseSandbox):
                     break
 
                 # Drain available chunks
-                drained_any = False
                 while not log_queue.empty():
                     item = log_queue.get_nowait()
                     if item is None:
                         break
-                    drained_any = True
                     text_chunk = item.decode("utf-8", errors="replace")
                     chunk_obj = consumer.consume_stdout(text_chunk)
                     if chunk_obj:
@@ -219,7 +236,10 @@ class DockerSandbox(BaseSandbox):
                 # Check if container has exited cleanly
                 with contextlib.suppress(Exception):
                     container.reload()
-                    if not container.attrs.get("State", {}).get("Running", True) and log_queue.empty():
+                    if (
+                        not container.attrs.get("State", {}).get("Running", True)
+                        and log_queue.empty()
+                    ):
                         break
 
                 await asyncio.sleep(0.05)

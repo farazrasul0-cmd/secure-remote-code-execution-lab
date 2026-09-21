@@ -6,6 +6,12 @@ target-version = "py311"
 line-length = 88
 indent-width = 4
 
+extend-exclude = [
+    "backend/venv",
+    ".venv",
+    "venv",
+]
+
 [lint]
 select = [
     "E",   # pycodestyle errors
@@ -36,6 +42,7 @@ runtime-evaluated-base-classes = ["app.db.base.Base"]
 "backend/app/schemas/*" = ["TC001", "TC002", "TC003"]
 "backend/app/services/*" = ["TC001", "TC002", "TC003"]
 "benchmarks/*" = ["E402", "W291"]
+"worker/daemon.py" = ["E402"]
 "worker/sandbox/polyglot/*" = ["TC001", "TC002", "TC003"]
 "worker/sandbox/process_sandbox.py" = ["TC003"]
 "worker/grading/*" = ["TC001", "TC002", "TC003"]

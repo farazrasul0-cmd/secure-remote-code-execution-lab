@@ -1,4 +1,4 @@
-﻿"""003_collaborative_rooms
+"""003_collaborative_rooms
 
 Revision ID: 003_collaborative_rooms
 Revises: 002_autograding
@@ -25,7 +25,9 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("name", sa.String(length=120), nullable=False),
         sa.Column("owner_id", sa.UUID(), nullable=False),
-        sa.Column("language", sa.String(length=30), nullable=False, server_default="python"),
+        sa.Column(
+            "language", sa.String(length=30), nullable=False, server_default="python"
+        ),
         sa.Column("current_code", sa.Text(), nullable=False, server_default=""),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
         sa.Column("max_members", sa.Integer(), nullable=False, server_default="10"),
@@ -42,15 +44,21 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("room_id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("role", sa.String(length=20), nullable=False, server_default="editor"),
+        sa.Column(
+            "role", sa.String(length=20), nullable=False, server_default="editor"
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["room_id"], ["rooms.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_room_members_room_id"), "room_members", ["room_id"], unique=False)
-    op.create_index(op.f("ix_room_members_user_id"), "room_members", ["user_id"], unique=False)
+    op.create_index(
+        op.f("ix_room_members_room_id"), "room_members", ["room_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_room_members_user_id"), "room_members", ["user_id"], unique=False
+    )
 
 
 def downgrade() -> None:

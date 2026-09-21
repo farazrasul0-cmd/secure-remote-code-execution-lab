@@ -50,7 +50,9 @@ async def submit_code(
     """Ingest code submission, persist PENDING record, and enqueue to worker pool."""
     # Check supported language via LanguageRegistry
     if not LanguageRegistry.is_supported(sub_in.language):
-        supported = ", ".join([l["id"] for l in LanguageRegistry.list_supported()])
+        supported = ", ".join(
+            [lang["id"] for lang in LanguageRegistry.list_supported()]
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported language runtime '{sub_in.language}'. Supported runtimes: {supported}.",

@@ -78,7 +78,11 @@ class ProcessSandbox(BaseSandbox):
             return
 
         if self.active_process and self.active_process.stdin:
-            data_str = data.decode("utf-8", errors="replace") if isinstance(data, bytes) else data
+            data_str = (
+                data.decode("utf-8", errors="replace")
+                if isinstance(data, bytes)
+                else data
+            )
             # Normalize carriage returns for raw pipes (xterm sends \r, but console pipes expect \n)
             data_str = data_str.replace("\r\n", "\n").replace("\r", "\n")
             data_bytes = data_str.encode("utf-8")
@@ -369,14 +373,10 @@ class ProcessSandbox(BaseSandbox):
                 await process.stdin.drain()
                 # User supplied batch input via the Stdin drawer / autograder.
                 # Send EOF so readers reading until EOF don't hang.
-                try:
+                with contextlib.suppress(AttributeError, NotImplementedError, OSError):
                     process.stdin.write_eof()
-                except (AttributeError, NotImplementedError, OSError):
-                    pass
-                try:
+                with contextlib.suppress(Exception):
                     process.stdin.close()
-                except Exception:
-                    pass
 
             chunk_queue: asyncio.Queue[StreamChunk | None] = asyncio.Queue()
             pumps_done = 0
@@ -412,7 +412,9 @@ class ProcessSandbox(BaseSandbox):
 
             # Stream chunks as they arrive from stdout/stderr concurrently
             while True:
-                remaining = max(0.01, request.timeout_seconds - (time.perf_counter() - start_time))
+                remaining = max(
+                    0.01, request.timeout_seconds - (time.perf_counter() - start_time)
+                )
                 try:
                     item = await asyncio.wait_for(chunk_queue.get(), timeout=remaining)
                     if item is None:

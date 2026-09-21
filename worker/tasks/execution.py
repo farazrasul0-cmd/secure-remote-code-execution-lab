@@ -42,7 +42,9 @@ async def _consume_upstream_inputs(
                         frame = json.loads(raw_data)
                         frame_type = frame.get("type")
                         if frame_type == "stdin":
-                            logger.info("Writing stdin to sandbox: %s", frame.get("data", ""))
+                            logger.info(
+                                "Writing stdin to sandbox: %s", frame.get("data", "")
+                            )
                             sandbox.write_stdin(frame.get("data", ""))
                         elif frame_type == "resize":
                             cols = int(frame.get("cols", 80))

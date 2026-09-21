@@ -45,7 +45,8 @@ async def create_submission(
             "source_code": submission.source_code,
             "language": submission.language,
             "stdin_data": submission.stdin_data,
-            "timeout_seconds": sub_in.timeout_seconds or settings.EXECUTION_TIMEOUT_SECONDS,
+            "timeout_seconds": sub_in.timeout_seconds
+            or settings.EXECUTION_TIMEOUT_SECONDS,
             "memory_limit": settings.SANDBOX_MEMORY_LIMIT,
             "cpu_quota": settings.SANDBOX_CPU_QUOTA,
             "max_pids": settings.SANDBOX_MAX_PIDS,
