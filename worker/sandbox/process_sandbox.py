@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import os
 import shutil
+import signal
 import sys
 import tempfile
 import time
@@ -23,6 +25,15 @@ from worker.sandbox.models import (
 )
 from worker.sandbox.polyglot.registry import LanguageRegistry
 from worker.sandbox.stream_consumer import StreamConsumer
+
+
+def _terminate_subprocess(process: asyncio.subprocess.Process) -> None:
+    """Terminate child process and its entire process group on POSIX systems."""
+    if sys.platform != "win32" and process.pid:
+        with contextlib.suppress(Exception):
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+    with contextlib.suppress(Exception):
+        process.kill()
 
 
 class ProcessSandbox(BaseSandbox):
@@ -360,11 +371,16 @@ class ProcessSandbox(BaseSandbox):
             # 2. Execution Phase
             cmd = strategy.get_execution_command(target_exec)
 
+            spawn_kwargs: dict[str, Any] = {}
+            if sys.platform != "win32":
+                spawn_kwargs["start_new_session"] = True
+
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                **spawn_kwargs,
             )
             self.active_process = process
 
@@ -397,8 +413,7 @@ class ProcessSandbox(BaseSandbox):
                         if chunk_obj:
                             await chunk_queue.put(chunk_obj)
                         if consumer.limit_exceeded:
-                            with contextlib.suppress(Exception):
-                                process.kill()
+                            _terminate_subprocess(process)
                             break
                 except Exception:
                     pass
@@ -422,8 +437,8 @@ class ProcessSandbox(BaseSandbox):
                     yield item
                 except TimeoutError:
                     timed_out = True
+                    _terminate_subprocess(process)
                     with contextlib.suppress(Exception):
-                        process.kill()
                         await process.wait()
                     yield StreamChunk(
                         event=StreamEventType.ERROR,

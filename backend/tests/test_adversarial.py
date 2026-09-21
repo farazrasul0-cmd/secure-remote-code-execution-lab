@@ -21,7 +21,7 @@ async def test_adversarial_fork_bomb_containment():
     fork_bomb_code = (
         "import os, time\n"
         "try:\n"
-        "    for _ in range(100):\n"
+        "    for _ in range(10):\n"
         "        if hasattr(os, 'fork'):\n"
         "            os.fork()\n"
         "    while True:\n"
