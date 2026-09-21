@@ -15,7 +15,7 @@ class SandboxFactory:
     def create_sandbox(
         driver_type: SandboxDriverType | str = SandboxDriverType.AUTO,
         force_process: bool = False,
-        seccomp_path: str | None = "docker/python/seccomp-profile.json",
+        seccomp_path: str | None = None,
         vcpus: int = 1,
         mem_size_mib: int = 128,
     ) -> BaseSandbox:

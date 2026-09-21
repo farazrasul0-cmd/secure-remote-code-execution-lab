@@ -3,9 +3,19 @@
 import asyncio
 import json
 import logging
+import sys
+from pathlib import Path
+
+# Ensure backend package is in python path
+backend_path = Path(__file__).resolve().parent.parent / "backend"
+if str(backend_path) not in sys.path:
+    sys.path.insert(0, str(backend_path))
 
 from redis.asyncio import Redis
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.models.submission import Submission
 from worker.config import worker_settings
 from worker.grading.harness import GradingHarness
 from worker.grading.models import ComparisonMode, TestCaseData
@@ -17,6 +27,63 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | worker.daemon - %(message)s",
 )
 logger = logging.getLogger("rce_worker.daemon")
+
+# Initialize database engine for worker result persistence
+db_engine = create_async_engine(
+    worker_settings.DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=5,
+)
+WorkerSessionLocal = async_sessionmaker(
+    bind=db_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+
+async def _persist_submission_result(
+    submission_id: str,
+    status: str,
+    exit_code: int | None = None,
+    duration_ms: int | None = None,
+    output_summary: str | None = None,
+    score: int | None = None,
+    max_score: int | None = None,
+    grading_status: str | None = None,
+) -> None:
+    """Update submission record in PostgreSQL database upon completion."""
+    try:
+        import uuid
+
+        sub_uuid = uuid.UUID(submission_id)
+        async with WorkerSessionLocal() as session:
+            stmt = (
+                update(Submission)
+                .where(Submission.id == sub_uuid)
+                .values(
+                    status=status,
+                    exit_code=exit_code,
+                    execution_time_ms=duration_ms,
+                    output_summary=output_summary,
+                    score=score,
+                    max_score=max_score,
+                    grading_status=grading_status,
+                )
+            )
+            await session.execute(stmt)
+            await session.commit()
+            logger.info(
+                "Persisted database status '%s' for submission %s",
+                status,
+                submission_id,
+            )
+    except Exception as db_err:
+        logger.error(
+            "Failed to persist submission %s to database: %s", submission_id, db_err
+        )
 
 
 class AsyncWorkerDaemon:
@@ -88,6 +155,13 @@ class AsyncWorkerDaemon:
                         summary.model_dump_json(),
                         ex=86400,
                     )
+                    await _persist_submission_result(
+                        submission_id=submission_id,
+                        status=summary.overall_status.value,
+                        score=summary.total_score,
+                        max_score=summary.max_score,
+                        grading_status=summary.overall_status.value,
+                    )
                     logger.info(
                         "Finished grading job for submission %s: Status=%s, Score=%d/%d",
                         submission_id,
@@ -111,6 +185,13 @@ class AsyncWorkerDaemon:
 
                     # Execute sandbox and publish stream chunks
                     result = await _stream_and_collect(submission_id, request)
+                    await _persist_submission_result(
+                        submission_id=submission_id,
+                        status=result.get("status", "COMPLETED"),
+                        exit_code=result.get("exit_code"),
+                        duration_ms=result.get("duration_ms"),
+                        output_summary=result.get("stdout") or result.get("stderr"),
+                    )
                     logger.info(
                         "Finished job for submission: %s (Status: %s)",
                         submission_id,

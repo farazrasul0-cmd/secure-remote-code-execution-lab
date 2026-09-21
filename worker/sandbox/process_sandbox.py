@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import shutil
 import sys
 import tempfile
 import time
@@ -31,6 +32,45 @@ class ProcessSandbox(BaseSandbox):
         self.active_process: asyncio.subprocess.Process | None = None
         self.active_pty: Any = None
 
+    @staticmethod
+    def _adapt_compile_command_for_platform(cmd: list[str]) -> list[str]:
+        if sys.platform != "win32":
+            return cmd
+        filtered = []
+        skip_next = False
+        for arg in cmd:
+            if skip_next:
+                skip_next = False
+                continue
+            if arg == "-std=c17":
+                filtered.append("-std=c11")
+            elif arg == "-std=c++20":
+                filtered.append("-std=c++14")
+            elif arg in ["-pie", "-fPIE", "-Wl,-z,relro,-z,now"]:
+                continue
+            elif arg == "-z":
+                skip_next = True
+                continue
+            else:
+                filtered.append(arg)
+
+        if filtered and filtered[0] == "rustc" and not shutil.which("rustc"):
+            cargo_rustc = Path.home() / ".cargo" / "bin" / "rustc.exe"
+            if cargo_rustc.exists():
+                filtered[0] = str(cargo_rustc)
+
+        if filtered and filtered[0] == "go" and not shutil.which("go"):
+            for candidate in [
+                Path("C:/Program Files/Go/bin/go.exe"),
+                Path("C:/Go/bin/go.exe"),
+                Path.home() / "go" / "bin" / "go.exe",
+            ]:
+                if candidate.exists():
+                    filtered[0] = str(candidate)
+                    break
+
+        return filtered
+
     def write_stdin(self, data: str | bytes) -> None:
         """Inject interactive user input into active process or PTY."""
         if self.active_pty:
@@ -38,7 +78,14 @@ class ProcessSandbox(BaseSandbox):
             return
 
         if self.active_process and self.active_process.stdin:
-            data_bytes = data.encode("utf-8") if isinstance(data, str) else data
+            data_str = (
+                data.decode("utf-8", errors="replace")
+                if isinstance(data, bytes)
+                else data
+            )
+            # Normalize carriage returns for raw pipes (xterm sends \r, but console pipes expect \n)
+            data_str = data_str.replace("\r\n", "\n").replace("\r", "\n")
+            data_bytes = data_str.encode("utf-8")
             try:
                 self.active_process.stdin.write(data_bytes)
                 asyncio.create_task(self.active_process.stdin.drain())
@@ -83,7 +130,9 @@ class ProcessSandbox(BaseSandbox):
                 binary_file = temp_dir / (
                     "solution.exe" if sys.platform == "win32" else "solution"
                 )
-                compile_cmd = strategy.get_compile_command(source_file, binary_file)
+                compile_cmd = self._adapt_compile_command_for_platform(
+                    strategy.get_compile_command(source_file, binary_file)
+                )
 
                 try:
                     comp_proc = await asyncio.create_subprocess_exec(
@@ -232,7 +281,9 @@ class ProcessSandbox(BaseSandbox):
                 binary_file = temp_dir / (
                     "solution.exe" if sys.platform == "win32" else "solution"
                 )
-                compile_cmd = strategy.get_compile_command(source_file, binary_file)
+                compile_cmd = self._adapt_compile_command_for_platform(
+                    strategy.get_compile_command(source_file, binary_file)
+                )
 
                 try:
                     comp_proc = await asyncio.create_subprocess_exec(
@@ -320,45 +371,71 @@ class ProcessSandbox(BaseSandbox):
             if request.stdin_data and process.stdin:
                 process.stdin.write(request.stdin_data.encode("utf-8"))
                 await process.stdin.drain()
-
-            async def read_stream(stream, is_stderr: bool):
-                while True:
-                    line = await stream.readline()
-                    if not line:
-                        break
-                    text_chunk = line.decode("utf-8", errors="replace")
-                    chunk_obj = (
-                        consumer.consume_stderr(text_chunk)
-                        if is_stderr
-                        else consumer.consume_stdout(text_chunk)
-                    )
-                    if chunk_obj:
-                        yield chunk_obj
-                    if consumer.limit_exceeded:
-                        with contextlib.suppress(Exception):
-                            process.kill()
-                        break
-
-            # Read stdout
-            async for chunk in read_stream(process.stdout, is_stderr=False):
-                yield chunk
-
-            # Wait for completion with timeout
-            try:
-                await asyncio.wait_for(process.wait(), timeout=request.timeout_seconds)
-            except TimeoutError:
-                timed_out = True
+                # User supplied batch input via the Stdin drawer / autograder.
+                # Send EOF so readers reading until EOF don't hang.
+                with contextlib.suppress(AttributeError, NotImplementedError, OSError):
+                    process.stdin.write_eof()
                 with contextlib.suppress(Exception):
-                    process.kill()
-                    await process.wait()
-                yield StreamChunk(
-                    event=StreamEventType.ERROR,
-                    data=f"\n[SYSTEM: Execution exceeded wall-clock timeout of {request.timeout_seconds}s.]",
-                )
+                    process.stdin.close()
 
-            # Read stderr
-            async for chunk in read_stream(process.stderr, is_stderr=True):
-                yield chunk
+            chunk_queue: asyncio.Queue[StreamChunk | None] = asyncio.Queue()
+            pumps_done = 0
+
+            async def pump(stream, is_stderr: bool):
+                nonlocal pumps_done
+                try:
+                    while True:
+                        data = await stream.read(1024)
+                        if not data:
+                            break
+                        text_chunk = data.decode("utf-8", errors="replace")
+                        chunk_obj = (
+                            consumer.consume_stderr(text_chunk)
+                            if is_stderr
+                            else consumer.consume_stdout(text_chunk)
+                        )
+                        if chunk_obj:
+                            await chunk_queue.put(chunk_obj)
+                        if consumer.limit_exceeded:
+                            with contextlib.suppress(Exception):
+                                process.kill()
+                            break
+                except Exception:
+                    pass
+                finally:
+                    pumps_done += 1
+                    if pumps_done >= 2:
+                        await chunk_queue.put(None)
+
+            pump_stdout = asyncio.create_task(pump(process.stdout, False))
+            pump_stderr = asyncio.create_task(pump(process.stderr, True))
+
+            # Stream chunks as they arrive from stdout/stderr concurrently
+            while True:
+                remaining = max(
+                    0.01, request.timeout_seconds - (time.perf_counter() - start_time)
+                )
+                try:
+                    item = await asyncio.wait_for(chunk_queue.get(), timeout=remaining)
+                    if item is None:
+                        break
+                    yield item
+                except TimeoutError:
+                    timed_out = True
+                    with contextlib.suppress(Exception):
+                        process.kill()
+                        await process.wait()
+                    yield StreamChunk(
+                        event=StreamEventType.ERROR,
+                        data=f"\n[SYSTEM: Execution exceeded wall-clock timeout of {request.timeout_seconds}s.]",
+                    )
+                    break
+
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(process.wait(), timeout=2.0)
+            with contextlib.suppress(Exception):
+                pump_stdout.cancel()
+                pump_stderr.cancel()
 
             exit_code = process.returncode if not timed_out else -9
             duration_ms = int((time.perf_counter() - start_time) * 1000)

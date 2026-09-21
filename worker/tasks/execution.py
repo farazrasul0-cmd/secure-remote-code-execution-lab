@@ -42,6 +42,9 @@ async def _consume_upstream_inputs(
                         frame = json.loads(raw_data)
                         frame_type = frame.get("type")
                         if frame_type == "stdin":
+                            logger.info(
+                                "Writing stdin to sandbox: %s", frame.get("data", "")
+                            )
                             sandbox.write_stdin(frame.get("data", ""))
                         elif frame_type == "resize":
                             cols = int(frame.get("cols", 80))
@@ -49,10 +52,11 @@ async def _consume_upstream_inputs(
                             sandbox.resize_terminal(cols, rows)
                         elif frame_type == "signal":
                             sig_name = frame.get("signal", "SIGINT")
+                            logger.info("Sending signal %s to sandbox", sig_name)
                             sig_val = getattr(signal, sig_name, signal.SIGINT)
                             sandbox.send_signal(sig_val)
                     except Exception as err:
-                        logger.debug("Error processing upstream input frame: %s", err)
+                        logger.error("Error processing upstream input frame: %s", err)
             await asyncio.sleep(0.01)
     except asyncio.CancelledError:
         pass
@@ -69,7 +73,8 @@ async def _stream_and_collect(
     trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Asynchronous core running sandbox, multiplexing streams to Redis, and gathering metrics."""
-    sandbox = SandboxFactory.create_sandbox(force_process=force_process)
+    is_polyglot = request.language.lower() != "python"
+    sandbox = SandboxFactory.create_sandbox(force_process=force_process or is_polyglot)
     multiplexer = StreamMultiplexer(submission_id)
     redis_client = redis_broker.get_async_client()
 

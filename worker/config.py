@@ -15,6 +15,9 @@ class WorkerSettings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # Database Configuration (PostgreSQL Async)
+    DATABASE_URL: str = "postgresql+asyncpg://lab_admin:dev_secret_password@localhost:5432/remote_lab_db"
+
     # Queue Names & Channel Prefixes
     QUEUE_NAME: str = "rce:submissions"
     STREAM_CHANNEL_PREFIX: str = "rce:stream:"
@@ -27,7 +30,7 @@ class WorkerSettings(BaseSettings):
 
     # Container Sandbox Defaults
     SANDBOX_IMAGE_PYTHON: str = "lab-sandbox-python:3.11"
-    EXECUTION_TIMEOUT_SECONDS: int = 5
+    EXECUTION_TIMEOUT_SECONDS: int = 30
     SANDBOX_MEMORY_LIMIT: str = "128m"
     SANDBOX_CPU_QUOTA: int = 50000
     SANDBOX_MAX_PIDS: int = 64

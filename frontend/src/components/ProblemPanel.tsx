@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Problem, ProblemDetail } from '../types';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface ProblemPanelProps {
   onSelectProblem?: (problem: ProblemDetail) => void;
@@ -20,14 +21,21 @@ export const ProblemPanel: React.FC<ProblemPanelProps> = ({
   onSubmitForGrading,
   isGrading,
 }) => {
+  const { isAuthenticated } = useAuth();
   const [problems, setProblems] = useState<Problem[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>('');
   const [problemDetail, setProblemDetail] = useState<ProblemDetail | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    loadProblems();
-  }, []);
+    if (isAuthenticated) {
+      loadProblems();
+    } else {
+      setProblems([]);
+      setProblemDetail(null);
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const loadProblems = async () => {
     try {
@@ -97,14 +105,18 @@ export const ProblemPanel: React.FC<ProblemPanelProps> = ({
           <select
             value={selectedSlug}
             onChange={(e) => selectProblem(e.target.value)}
-            disabled={loading || isGrading}
-            className="bg-slate-800 text-slate-200 text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+            disabled={loading || isGrading || !isAuthenticated || problems.length === 0}
+            className="bg-slate-800 text-slate-200 text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer disabled:opacity-50"
           >
-            {problems.map((p) => (
-              <option key={p.id} value={p.slug}>
-                {p.title} ({p.difficulty})
-              </option>
-            ))}
+            {problems.length === 0 ? (
+              <option value="">{isAuthenticated ? 'No problems available' : 'Sign in to view problems'}</option>
+            ) : (
+              problems.map((p) => (
+                <option key={p.id} value={p.slug}>
+                  {p.title} ({p.difficulty})
+                </option>
+              ))
+            )}
           </select>
 
           <button
@@ -191,9 +203,18 @@ export const ProblemPanel: React.FC<ProblemPanelProps> = ({
             </div>
           )}
         </div>
+      ) : !isAuthenticated ? (
+        <div className="py-4 text-center text-xs text-slate-400 bg-slate-950/40 rounded-lg border border-dashed border-slate-800">
+          Please <span className="text-sky-400 font-semibold">Sign In</span> or <span className="text-sky-400 font-semibold">Register</span> at the top right to view problem specifications and submit code for grading.
+        </div>
+      ) : loading ? (
+        <div className="py-4 text-center text-xs text-slate-500 flex items-center justify-center space-x-2">
+          <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+          <span>Loading problem specification...</span>
+        </div>
       ) : (
         <div className="py-4 text-center text-xs text-slate-500">
-          Loading problem specification...
+          No problem selected or available.
         </div>
       )}
     </div>

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # Server Networking
     BACKEND_HOST: str = "0.0.0.0"
-    BACKEND_PORT: int = 8000
+    BACKEND_PORT: int = 8001
     ALLOWED_HOSTS: list[str] = ["*"]
     CORS_ORIGINS: list[str | AnyHttpUrl] = [
         "http://localhost:3000",
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     # Execution Sandbox Quotas & Limits
     SANDBOX_IMAGE_PYTHON: str = "lab-sandbox-python:3.11"
-    EXECUTION_TIMEOUT_SECONDS: int = 5
+    EXECUTION_TIMEOUT_SECONDS: int = 30
     SANDBOX_MEMORY_LIMIT: str = "128m"
     SANDBOX_CPU_QUOTA: int = 50000  # 50% CPU quota (50000us per 100000us period)
     SANDBOX_MAX_PIDS: int = 64

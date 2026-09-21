@@ -19,7 +19,7 @@ export const StdinDrawer: React.FC<StdinDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="bg-slate-850 border border-slate-750 rounded-xl p-3.5 mt-2 shadow-md bg-slate-900/90 backdrop-blur-sm">
+    <div className="bg-slate-900 border-b border-slate-800 p-3.5 shadow-inner">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-2">
           <SlidersHorizontal className="w-4 h-4 text-amber-400" />
@@ -35,7 +35,7 @@ export const StdinDrawer: React.FC<StdinDrawerProps> = ({
           <button
             onClick={() => onChange('')}
             disabled={disabled || !value}
-            className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 text-xs flex items-center space-x-1 disabled:opacity-40"
+            className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 text-xs flex items-center space-x-1 disabled:opacity-40 transition-colors"
             title="Clear stdin content"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -43,7 +43,8 @@ export const StdinDrawer: React.FC<StdinDrawerProps> = ({
           </button>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800"
+            className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 transition-colors"
+            title="Close stdin drawer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -56,7 +57,8 @@ export const StdinDrawer: React.FC<StdinDrawerProps> = ({
         disabled={disabled}
         placeholder="Enter data to pipe to sys.stdin (e.g. numbers, lines of text, JSON payload)..."
         rows={3}
-        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-lg p-2.5 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 resize-y"
+        className="w-full bg-slate-950/90 border border-slate-700/80 rounded-lg p-2.5 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 resize-y"
+        autoFocus
       />
     </div>
   );

@@ -21,6 +21,7 @@ from app.schemas.submission import (
     SubmissionResponse,
 )
 from app.services import submission_service
+from worker.sandbox.polyglot.registry import LanguageRegistry
 
 router = APIRouter()
 
@@ -47,11 +48,14 @@ async def submit_code(
     redis_client: Annotated[Redis, Depends(get_redis_client)],
 ) -> SubmissionResponse:
     """Ingest code submission, persist PENDING record, and enqueue to worker pool."""
-    # Check supported language
-    if sub_in.language.lower() != "python":
+    # Check supported language via LanguageRegistry
+    if not LanguageRegistry.is_supported(sub_in.language):
+        supported = ", ".join(
+            [lang["id"] for lang in LanguageRegistry.list_supported()]
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported language runtime '{sub_in.language}'. Version 1.0 supports 'python' only.",
+            detail=f"Unsupported language runtime '{sub_in.language}'. Supported runtimes: {supported}.",
         )
 
     try:
