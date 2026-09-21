@@ -39,7 +39,7 @@ jobs:
 
       - name: Run Full Pytest Suite with Coverage
         run: |
-          pytest backend/tests -v --cov=backend/app --cov=worker --cov-report=term-missing
+          pytest backend/tests -v --durations=10 --cov=backend/app --cov=worker --cov-report=term-missing
 
   frontend-quality:
     name: Frontend Lint, Typecheck & Production Build
